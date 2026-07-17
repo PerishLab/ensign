@@ -17,6 +17,7 @@
 		"react-dom": "catalog:",
 		"typescript": "catalog:",
 		"vite": "catalog:",
-		"vitest": "catalog:"
+		"vitest": "catalog:",
+		"sass": "catalog:"
 	}
 }

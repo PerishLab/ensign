@@ -20,6 +20,8 @@
 		"@vitejs/plugin-react": "catalog:",
 		"typescript": "catalog:",
 		"vite": "catalog:",
-		"vitest": "catalog:"
+		"vitest": "catalog:",
+		"sass": "catalog:",
+		"@playwright/cli": "catalog:"
 	}
 }

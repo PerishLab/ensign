@@ -1,0 +1,15 @@
+.note {
+	margin: 0;
+	font-size: var(--fine);
+}
+
+.note-calm {
+	color: var(--muted);
+}
+
+.note-warn {
+	padding: var(--step) var(--room);
+	border-radius: var(--radius);
+	background: var(--flush);
+	color: var(--warn);
+}

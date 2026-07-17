@@ -1,0 +1,31 @@
+@use "media";
+
+.card-page {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 100vh;
+	padding: var(--span);
+}
+
+.card {
+	display: flex;
+	flex-direction: column;
+	gap: var(--span);
+	width: 100%;
+	max-width: var(--card);
+	padding: var(--rise);
+	border: var(--line) solid var(--rule);
+	border-radius: var(--radius);
+	background: var(--panel);
+	box-shadow: var(--lift);
+}
+
+@include media.narrow {
+	.card {
+		border: none;
+		box-shadow: none;
+		background: transparent;
+		padding: var(--room);
+	}
+}

@@ -1,0 +1,33 @@
+.field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--step);
+}
+
+.field-label {
+	color: var(--muted);
+	font-size: var(--fine);
+	font-weight: var(--heft);
+}
+
+.field-input {
+	width: 100%;
+	padding: var(--step) var(--room);
+	border: var(--line) solid var(--rule);
+	border-radius: var(--radius);
+	background: var(--panel);
+	color: var(--bright);
+	font-family: var(--sans);
+	font-size: var(--body);
+	transition: border-color var(--beat), box-shadow var(--beat);
+}
+
+.field-input:hover {
+	border-color: var(--muted);
+}
+
+.field-input:focus {
+	border-color: var(--accent);
+	box-shadow: 0 0 0 var(--line) var(--accent);
+	outline: none;
+}

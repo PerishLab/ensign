@@ -1,0 +1,24 @@
+.mark {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--step);
+}
+
+.mark-flag {
+	color: var(--accent);
+	font-size: var(--hero);
+	line-height: 1;
+}
+
+.mark-name {
+	color: var(--bright);
+	font-size: var(--title);
+	font-weight: var(--heft);
+	letter-spacing: -0.01em;
+}
+
+.mark-note {
+	color: var(--muted);
+	font-size: var(--body);
+}

@@ -1,7 +1,7 @@
 import { renderToString } from "react-dom/server";
 import { expect, test } from "vitest";
-import { Home } from "../src/views/Home";
+import { Login } from "../src/views/Login";
 
-test("home carries the mark", () => {
-	expect(renderToString(<Home />)).toContain("ensign");
+test("login offers the sign-in action", () => {
+	expect(renderToString(<Login />)).toContain("Sign in");
 });
