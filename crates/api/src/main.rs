@@ -36,7 +36,7 @@ struct Actor {
 struct Pass {
     #[field(string)]
     hash: string,
-    #[relation(Actor, many2one, root)]
+    #[relation(Actor, one2one, root)]
     actor: Actor,
 }
 
@@ -97,6 +97,7 @@ keel_gate::gate!(Actor);
 struct Booth<S: Store> {
     core: Arc<Core<S>>,
     svc: i64,
+    secure: bool,
 }
 
 impl<S: Store> Clone for Booth<S> {
@@ -104,6 +105,7 @@ impl<S: Store> Clone for Booth<S> {
         Self {
             core: self.core.clone(),
             svc: self.svc,
+            secure: self.secure,
         }
     }
 }
@@ -139,9 +141,21 @@ impl<S: Store + 'static> Booth<S> {
     }
 
     fn actor(&self, login: &str) -> Option<i64> {
-        let q = format!(r#"from Actor where login = "{login}""#);
+        let q = format!(r#"from Actor where login = "{}""#, scrub(login));
         let pack = self.core.of(self.svc).query(&q).ok()?;
         pack.rows().first().map(keel::Row::key)
+    }
+
+    fn refloor(&self, key: i64) {
+        let face = self.core.of(self.svc);
+        for unit in ["Rescue", "Session"] {
+            let q = format!(r#"from {unit} where actor = "{key}""#);
+            if let Ok(pack) = face.query(&q) {
+                for row in pack.rows() {
+                    let _ = face.end(unit, row.key());
+                }
+            }
+        }
     }
 
     fn shield(&self, key: i64) -> Option<String> {
@@ -198,7 +212,10 @@ impl<S: Store + 'static> Booth<S> {
             .lease("Session", row, now() + TTL)
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         let mut headers = HeaderMap::new();
-        let jar = format!("session={sid}; HttpOnly; Path=/");
+        let mut jar = format!("session={sid}; HttpOnly; SameSite=Lax; Path=/");
+        if self.secure {
+            jar.push_str("; Secure");
+        }
         headers.insert(
             "set-cookie",
             jar.parse().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
@@ -279,9 +296,12 @@ async fn serve<S: Store + 'static>(core: Arc<Core<S>>, cfg: &config::Config, roo
         Ok(pair) => pair,
         Err(err) => halt("rise", &err.to_string()),
     };
+    let iss = env::var("ENSIGN_ISS")
+        .unwrap_or_else(|_| format!("http://{}:{}", cfg.listen.host, cfg.listen.port));
     let booth = Booth {
         core: core.clone(),
         svc,
+        secure: iss.starts_with("https://"),
     };
     let plate = Router::new()
         .route("/invite", post(invite::<S>))
@@ -293,7 +313,6 @@ async fn serve<S: Store + 'static>(core: Arc<Core<S>>, cfg: &config::Config, roo
         .route("/mint", post(mint::<S>))
         .route("/revive", post(revive::<S>))
         .with_state(booth);
-    let iss = format!("http://{}:{}", cfg.listen.host, cfg.listen.port);
     let vault = Path::new(root).join(".local").join("sign.pem");
     let flags = oidc::Oidc::new(core.clone(), svc, iss, oidc::keys(&vault)).plate();
     let base = app(core.clone(), &cfg.listen.prefix)
@@ -404,7 +423,15 @@ async fn join<S: Store + 'static>(
     let login = text(&body, "login")?;
     let name = text(&body, "name")?;
     let pass = text(&body, "pass")?;
+    if pass.len() < 8 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
     let card = booth.card(&code).ok_or(StatusCode::NOT_FOUND)?;
+    booth
+        .core
+        .of(booth.svc)
+        .end("Invite", card)
+        .map_err(|_| StatusCode::NOT_FOUND)?;
     let key = booth
         .birth(&login, &name)
         .map_err(|_| StatusCode::CONFLICT)?;
@@ -413,11 +440,6 @@ async fn join<S: Store + 'static>(
         .core
         .of(key)
         .put("Pass", &[("hash", &hash), ("actor", &key.to_string())])
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    booth
-        .core
-        .of(booth.svc)
-        .end("Invite", card)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok((StatusCode::CREATED, Json(json!({ "id": key }))))
 }
@@ -523,7 +545,8 @@ async fn revive<S: Store + 'static>(
         .core
         .of(booth.svc)
         .end("Rescue", spare)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(|_| StatusCode::UNAUTHORIZED)?;
+    booth.refloor(key);
     booth.session(key)
 }
 
@@ -539,6 +562,10 @@ fn text(body: &Map<String, Value>, name: &str) -> Result<String, StatusCode> {
         .and_then(Value::as_str)
         .map(str::to_string)
         .ok_or(StatusCode::BAD_REQUEST)
+}
+
+fn scrub(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
 fn crumb(headers: &HeaderMap) -> Option<String> {

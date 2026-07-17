@@ -1,6 +1,6 @@
 use axum::Json;
 use axum::extract::{Form, Query, State};
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use axum::{Extension, Router};
@@ -93,6 +93,7 @@ struct Code {
     redirect: String,
     challenge: String,
     scope: String,
+    nonce: Option<String>,
     dies: i64,
 }
 
@@ -138,13 +139,17 @@ impl<S: Store + 'static> Oidc<S> {
     }
 
     fn open(&self, ask: Ask, actor: i64) -> Response {
-        if ask.kind != "code" || ask.method != "S256" {
+        let opens = ask.scope.split_whitespace().any(|word| word == "openid");
+        if ask.kind != "code" || ask.method != "S256" || !opens {
             return StatusCode::BAD_REQUEST.into_response();
         }
         let Some(app) = self.client(&ask.client) else {
             return StatusCode::BAD_REQUEST.into_response();
         };
         if cell(&app, "redirect") != ask.redirect || cell(&app, "mode") != "oidc" {
+            return StatusCode::BAD_REQUEST.into_response();
+        }
+        if !safe(&ask.redirect) {
             return StatusCode::BAD_REQUEST.into_response();
         }
         let grant = wild();
@@ -156,10 +161,16 @@ impl<S: Store + 'static> Oidc<S> {
                 redirect: ask.redirect.clone(),
                 challenge: ask.challenge,
                 scope: ask.scope,
+                nonce: ask.nonce,
                 dies: now() + GRACE,
             },
         );
-        let back = format!("{}?code={}&state={}", ask.redirect, grant, ask.state);
+        let back = format!(
+            "{}?code={}&state={}",
+            ask.redirect,
+            pct(&grant),
+            pct(&ask.state)
+        );
         Redirect::to(&back).into_response()
     }
 
@@ -179,7 +190,7 @@ impl<S: Store + 'static> Oidc<S> {
         if seal(&verifier) != code.challenge {
             return Err(sour("invalid_grant"));
         }
-        self.grip(code.actor, &code.client, &code.scope)
+        self.grip(code.actor, &code.client, &code.scope, code.nonce)
     }
 
     fn renew(&self, grant: Grant) -> Grip {
@@ -195,18 +206,34 @@ impl<S: Store + 'static> Oidc<S> {
             .of(self.svc)
             .end("Renew", ward.row)
             .map_err(|_| sour("invalid_grant"))?;
-        self.grip(ward.actor, &ward.slug, &ward.scope)
+        self.grip(ward.actor, &ward.slug, &ward.scope, None)
     }
 
-    fn grip(&self, actor: i64, client: &str, scope: &str) -> Grip {
+    fn grip(&self, actor: i64, client: &str, scope: &str, nonce: Option<String>) -> Grip {
         let who = self.person(actor).ok_or_else(|| sour("server_error"))?;
         let sub = actor.to_string();
         let wide = scope.split_whitespace().any(|word| word == "profile");
         let id = self
-            .sign(&sub, &who, client, wide)
+            .sign(&Ticket {
+                sub: sub.clone(),
+                aud: client.to_string(),
+                kind: "id",
+                scope: String::new(),
+                nonce,
+                wide,
+                who: &who,
+            })
             .map_err(|_| sour("server_error"))?;
         let reach = self
-            .sign(&sub, &who, &self.iss, false)
+            .sign(&Ticket {
+                sub,
+                aud: self.iss.clone(),
+                kind: "access",
+                scope: scope.to_string(),
+                nonce: None,
+                wide: false,
+                who: &who,
+            })
             .map_err(|_| sour("server_error"))?;
         let fresh = wild();
         self.mint(actor, client, scope, &fresh)
@@ -238,12 +265,25 @@ impl<S: Store + 'static> Oidc<S> {
         rule.set_audience(&[&self.iss]);
         let data =
             decode::<Value>(token, &self.keys.dec, &rule).map_err(|_| StatusCode::UNAUTHORIZED)?;
-        let sub = data.claims.get("sub").and_then(Value::as_str).unwrap_or("");
+        let claims = &data.claims;
+        if claims.get("kind").and_then(Value::as_str) != Some("access") {
+            return Err(StatusCode::UNAUTHORIZED);
+        }
+        let sub = claims.get("sub").and_then(Value::as_str).unwrap_or("");
         let id: i64 = sub.parse().map_err(|_| StatusCode::UNAUTHORIZED)?;
         let who = self.person(id).ok_or(StatusCode::NOT_FOUND)?;
-        Ok(Json(
-            json!({ "sub": sub, "login": who.login, "name": who.name }),
-        ))
+        let wide = claims
+            .get("scope")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .split_whitespace()
+            .any(|word| word == "profile");
+        let mut out = json!({ "sub": sub });
+        if wide {
+            out["login"] = json!(who.login);
+            out["name"] = json!(who.name);
+        }
+        Ok(Json(out))
     }
 
     fn person(&self, id: i64) -> Option<Who> {
@@ -257,7 +297,7 @@ impl<S: Store + 'static> Oidc<S> {
     }
 
     fn client(&self, slug: &str) -> Option<keel::Row> {
-        let q = format!(r#"from App where slug = "{slug}""#);
+        let q = format!(r#"from App where slug = "{}""#, scrub(slug));
         let pack = self.core.of(self.svc).query(&q).ok()?;
         pack.rows().first().cloned()
     }
@@ -298,26 +338,33 @@ impl<S: Store + 'static> Oidc<S> {
         face.lease("Renew", row, now() + RENEW)
     }
 
-    fn sign(
-        &self,
-        sub: &str,
-        who: &Who,
-        aud: &str,
-        wide: bool,
-    ) -> Result<String, jsonwebtoken::errors::Error> {
+    fn sign(&self, ticket: &Ticket) -> Result<String, jsonwebtoken::errors::Error> {
         let mut head = Header::new(Algorithm::ES256);
         head.kid = Some(self.keys.kid.clone());
         let claims = Claims {
             iss: self.iss.clone(),
-            sub: sub.to_string(),
-            aud: aud.to_string(),
+            sub: ticket.sub.clone(),
+            aud: ticket.aud.clone(),
+            kind: ticket.kind.to_string(),
             exp: now() + LIFE,
             iat: now(),
-            login: wide.then(|| who.login.clone()),
-            name: wide.then(|| who.name.clone()),
+            scope: (ticket.kind == "access").then(|| ticket.scope.clone()),
+            nonce: ticket.nonce.clone(),
+            login: ticket.wide.then(|| ticket.who.login.clone()),
+            name: ticket.wide.then(|| ticket.who.name.clone()),
         };
         encode(&head, &claims, &self.keys.enc)
     }
+}
+
+struct Ticket<'a> {
+    sub: String,
+    aud: String,
+    kind: &'a str,
+    scope: String,
+    nonce: Option<String>,
+    wide: bool,
+    who: &'a Who,
 }
 
 async fn disco<S: Store>(State(oidc): State<Oidc<S>>) -> Json<Value> {
@@ -358,6 +405,7 @@ struct Ask {
     challenge: String,
     #[serde(rename = "code_challenge_method")]
     method: String,
+    nonce: Option<String>,
 }
 
 async fn authorize<S: Store + 'static>(
@@ -388,12 +436,23 @@ struct Grant {
 
 type Grip = Result<Json<Value>, (StatusCode, Json<Value>)>;
 
-async fn token<S: Store + 'static>(State(oidc): State<Oidc<S>>, Form(grant): Form<Grant>) -> Grip {
-    match grant.kind.as_str() {
+async fn token<S: Store + 'static>(
+    State(oidc): State<Oidc<S>>,
+    Form(grant): Form<Grant>,
+) -> Response {
+    let grip = match grant.kind.as_str() {
         "authorization_code" => oidc.trade(grant),
         "refresh_token" => oidc.renew(grant),
         _ => Err(sour("unsupported_grant_type")),
-    }
+    };
+    let mut out = match grip {
+        Ok(json) => json.into_response(),
+        Err((code, json)) => (code, json).into_response(),
+    };
+    let heads = out.headers_mut();
+    heads.insert("cache-control", HeaderValue::from_static("no-store"));
+    heads.insert("pragma", HeaderValue::from_static("no-cache"));
+    out
 }
 
 async fn userinfo<S: Store + 'static>(
@@ -421,12 +480,39 @@ struct Claims {
     iss: String,
     sub: String,
     aud: String,
+    kind: String,
     exp: i64,
     iat: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    scope: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    nonce: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     login: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     name: Option<String>,
+}
+
+fn scrub(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+fn safe(redirect: &str) -> bool {
+    redirect.starts_with("https://")
+        || redirect.starts_with("http://127.0.0.1")
+        || redirect.starts_with("http://localhost")
+}
+
+fn pct(text: &str) -> String {
+    let mut out = String::new();
+    for byte in text.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
+            out.push(byte as char);
+        } else {
+            out.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    out
 }
 
 fn bearer(headers: &HeaderMap) -> Option<String> {

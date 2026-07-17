@@ -83,10 +83,20 @@ try {
       code,
       login: "bob",
       name: "Bob",
-      pass: "drift",
+      pass: "driftwood",
     });
     if (again.status !== 404) {
       throw new Error(`burned invite ${again.status}`);
+    }
+    const chit = await post("/invite", { note: "short" }, crown);
+    const feeble = await post("/join", {
+      code: (chit.body as { code: string }).code,
+      login: "wisp",
+      name: "Wisp",
+      pass: "short",
+    });
+    if (feeble.status !== 400) {
+      throw new Error(`weak password admitted ${feeble.status}`);
     }
   });
 
@@ -111,7 +121,7 @@ try {
     }
   });
 
-  await check("a rescue code burns once", async () => {
+  await check("a rescue code burns and re-floors the account", async () => {
     const minted = await post("/mint", {}, { cookie: jar });
     const codes = (minted.body as { codes?: string[] }).codes ?? [];
     if (minted.status !== 201 || codes.length !== 3) {
@@ -121,10 +131,20 @@ try {
     if (back.status !== 201) {
       throw new Error(`revive ${back.status}`);
     }
+    const stale = await get("/whoami", { cookie: jar });
+    if (stale.status !== 401) {
+      throw new Error(`old session outlived recovery ${stale.status}`);
+    }
+    const sibling = await post("/revive", { login: "ada", code: codes[1] });
+    if (sibling.status === 201) {
+      throw new Error("sibling rescue code survived re-floor");
+    }
     const spent = await post("/revive", { login: "ada", code: codes[0] });
     if (spent.status !== 401) {
       throw new Error(`spent code ${spent.status}`);
     }
+    const relog = await post("/login", { login: "ada", pass: "seaworthy" });
+    jar = cookie(relog);
   });
 
   await check("logout ends the session", async () => {
@@ -238,7 +258,7 @@ try {
   let renew = "";
   await check("code+PKCE mints a verifiable id token", async () => {
     const pk = await pkce();
-    const code = await dance(sailor.head, pk.challenge);
+    const code = await dance(sailor.head, pk.challenge, "openid profile", "salt");
     const grip = await form("/token", {
       grant_type: "authorization_code",
       code,
@@ -250,6 +270,9 @@ try {
     if (grip.status !== 200 || !bag.id_token) {
       throw new Error(`token ${grip.status}`);
     }
+    if (grip.headers.get("cache-control") !== "no-store") {
+      throw new Error("token response is cacheable");
+    }
     const claims = await attest(bag.id_token);
     if (claims.iss !== base || claims.aud !== "portal") {
       throw new Error(`claims ${JSON.stringify(claims)}`);
@@ -257,13 +280,41 @@ try {
     if (claims.sub !== String(sailor.id) || claims.login !== "sailor") {
       throw new Error(`subject ${JSON.stringify(claims)}`);
     }
+    if (claims.nonce !== "salt" || claims.kind !== "id") {
+      throw new Error(`nonce/kind ${JSON.stringify(claims)}`);
+    }
     const seen = await get("/userinfo", {
       authorization: `Bearer ${bag.access_token}`,
     });
-    if ((seen.body as { sub?: string }).sub !== String(sailor.id)) {
-      throw new Error(`userinfo ${JSON.stringify(seen.body)}`);
+    if ((seen.body as { sub?: string; login?: string }).login !== "sailor") {
+      throw new Error(`userinfo profile ${JSON.stringify(seen.body)}`);
     }
     renew = bag.refresh_token;
+  });
+
+  await check("authorize demands openid and honors scope", async () => {
+    const pk = await pkce();
+    const bare = await walk(sailor.head, pk.challenge, "profile");
+    const loc = bare.headers.get("location") ?? "";
+    if (loc.includes("code=")) {
+      throw new Error("authorize issued a code without openid");
+    }
+    const code = await dance(sailor.head, pk.challenge, "openid");
+    const grip = await form("/token", {
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: "http://127.0.0.1:9999/cb",
+      client_id: "portal",
+      code_verifier: pk.verifier,
+    });
+    const bag = grip.body as Record<string, string>;
+    const seen = await get("/userinfo", {
+      authorization: `Bearer ${bag.access_token}`,
+    });
+    const face = seen.body as { sub?: string; login?: string };
+    if (face.sub !== String(sailor.id) || face.login !== undefined) {
+      throw new Error(`scope leaked profile ${JSON.stringify(face)}`);
+    }
   });
 
   await check("refresh binds to its client and rotates", async () => {
@@ -480,24 +531,39 @@ async function form(
   return { status: res.status, body: await parse(res), headers: res.headers };
 }
 
-async function dance(
+async function walk(
   head: Record<string, string>,
   challenge: string,
-): Promise<string> {
+  scope: string,
+  nonce?: string,
+): Promise<Reply> {
   const query = new URLSearchParams({
     response_type: "code",
     client_id: "portal",
     redirect_uri: "http://127.0.0.1:9999/cb",
-    scope: "openid profile",
-    state: "voyage",
+    scope,
+    state: "voyage & drift",
     code_challenge: challenge,
     code_challenge_method: "S256",
   });
+  if (nonce) {
+    query.set("nonce", nonce);
+  }
   const res = await fetch(`${base}/authorize?${query}`, {
     headers: head,
     redirect: "manual",
   });
   await res.body?.cancel();
+  return { status: res.status, body: null, headers: res.headers };
+}
+
+async function dance(
+  head: Record<string, string>,
+  challenge: string,
+  scope = "openid profile",
+  nonce?: string,
+): Promise<string> {
+  const res = await walk(head, challenge, scope, nonce);
   const loc = res.headers.get("location") ?? "";
   const code = new URL(loc).searchParams.get("code");
   if (!code) {
