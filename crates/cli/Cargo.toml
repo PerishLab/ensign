@@ -1,0 +1,12 @@
+[package]
+name = "cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "the ensign client"
+publish = false
+
+[[bin]]
+name = "ensign"
+path = "src/main.rs"

@@ -1,0 +1,22 @@
+{
+	"name": "@ensign/components",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/lib.ts"
+	},
+	"scripts": {
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"react": "catalog:"
+	},
+	"devDependencies": {
+		"@types/react": "catalog:",
+		"@types/react-dom": "catalog:",
+		"react-dom": "catalog:",
+		"typescript": "catalog:",
+		"vite": "catalog:",
+		"vitest": "catalog:"
+	}
+}

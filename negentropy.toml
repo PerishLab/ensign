@@ -1,0 +1,52 @@
+[scan]
+include = [
+  "crates/**/*.rs",
+  "apps/**/*.ts",
+  "apps/**/*.tsx",
+  "apps/**/*.scss",
+  "packages/**/*.ts",
+  "packages/**/*.tsx",
+  "packages/**/*.scss",
+  "docs/**/*.md",
+]
+exclude = [
+  "**/target/**",
+  "**/node_modules/**",
+  "**/dist/**",
+]
+
+[module]
+roots = [
+  "crates/*/src",
+  "apps/*/src",
+  "apps/*/tests",
+  "packages/*/src",
+  "packages/*/tests",
+  "docs",
+]
+
+[limit]
+block = 4
+path = 4
+
+[[grant]]
+syntax = "test"
+paths = [
+  "apps/*/tests/**/*.test.ts",
+  "apps/*/tests/**/*.test.tsx",
+  "packages/*/tests/**/*.test.ts",
+  "packages/*/tests/**/*.test.tsx",
+]
+
+[[grant]]
+syntax = "style"
+paths = ["packages/components/**"]
+
+[[boundary]]
+paths = [
+  "apps/web/vite.config.ts",
+  "apps/web/vitest.config.ts",
+  "packages/components/vitest.config.ts",
+]
+note = "vite and vitest require root-level config files; path law anchors to src and tests"
+allow = ["path"]

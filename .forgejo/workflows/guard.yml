@@ -1,0 +1,49 @@
+name: guard
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  guard:
+    runs-on: docker
+    container:
+      image: mirror.perish.lan/ci/deno
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install pinned Negentropy
+        run: |
+          set -eu
+          version=$(cat .runseal/negentropy.version)
+          case "$version" in
+            *-beta.*|*-alpha.*) channel=beta ;;
+            *) channel=stable ;;
+          esac
+          curl -fsSL https://releases.negentropy.perish.uk/manage.sh -o "$RUNNER_TEMP/manage-negentropy.sh"
+          sh "$RUNNER_TEMP/manage-negentropy.sh" install --channel "$channel" --version "$version" --bin-dir "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Install pnpm
+        run: |
+          set -eu
+          npm install -g pnpm@11.13.0
+
+      - name: Guard
+        run: |
+          set -eu
+          export PATH="$HOME/.local/bin:$PATH"
+          deno run \
+            --allow-read \
+            --allow-write \
+            --allow-env \
+            --allow-net \
+            --allow-run \
+            --config .runseal/deno.json \
+            --lock .runseal/deno.lock \
+            --frozen=true \
+            .runseal/wrappers/guard.ts

@@ -1,0 +1,13 @@
+[workspace]
+resolver = "3"
+members = ["crates/api", "crates/cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://git.perish.top/PerishLab/ensign"
+
+[workspace.dependencies]
+keel = { version = "0.1.11", registry = "perish" }
+keel-gate = { version = "0.1.11", registry = "perish" }

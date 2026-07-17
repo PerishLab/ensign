@@ -1,0 +1,14 @@
+[listen]
+host = "127.0.0.1"
+port = 3500
+prefix = ""
+
+[store]
+kind = "file"
+path = ".local/ensign.sqlite"
+
+[identity]
+unit = "Actor"
+
+[cache]
+kind = "memory"

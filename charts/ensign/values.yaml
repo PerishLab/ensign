@@ -1,0 +1,5 @@
+image:
+  repository: git.perish.top/perishlab/ensign
+  tag: "0.1.0"
+service:
+  port: 3500
