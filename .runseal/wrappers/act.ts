@@ -207,6 +207,93 @@ try {
     }
   });
 
+  io.print("==> act 3: oidc provider");
+  const disc = await get("/.well-known/openid-configuration");
+  const meta = disc.body as Record<string, unknown>;
+  await check("discovery advertises the code flow", () => {
+    if (meta.issuer !== base) {
+      throw new Error(`issuer ${meta.issuer}`);
+    }
+    const methods = meta.code_challenge_methods_supported as string[];
+    if (!methods.includes("S256")) {
+      throw new Error("no S256");
+    }
+    return Promise.resolve();
+  });
+
+  await post("/App", {
+    name: "Portal",
+    slug: "portal",
+    home: "http://127.0.0.1:9999/",
+    redirect: "http://127.0.0.1:9999/cb",
+    secret: "",
+    mode: "oidc",
+  }, crown);
+  const sailor = await enrol(crown, "sailor");
+
+  let renew = "";
+  await check("code+PKCE mints a verifiable id token", async () => {
+    const pk = await pkce();
+    const code = await dance(sailor.head, pk.challenge);
+    const grip = await form("/token", {
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: "http://127.0.0.1:9999/cb",
+      client_id: "portal",
+      code_verifier: pk.verifier,
+    });
+    const bag = grip.body as Record<string, string>;
+    if (grip.status !== 200 || !bag.id_token) {
+      throw new Error(`token ${grip.status}`);
+    }
+    const claims = await attest(bag.id_token);
+    if (claims.iss !== base || claims.aud !== "portal") {
+      throw new Error(`claims ${JSON.stringify(claims)}`);
+    }
+    if (claims.sub !== String(sailor.id) || claims.login !== "sailor") {
+      throw new Error(`subject ${JSON.stringify(claims)}`);
+    }
+    const seen = await get("/userinfo", {
+      authorization: `Bearer ${bag.access_token}`,
+    });
+    if ((seen.body as { sub?: string }).sub !== String(sailor.id)) {
+      throw new Error(`userinfo ${JSON.stringify(seen.body)}`);
+    }
+    renew = bag.refresh_token;
+  });
+
+  await check("refresh rotates and retires the old token", async () => {
+    const fresh = await form("/token", {
+      grant_type: "refresh_token",
+      refresh_token: renew,
+    });
+    if (fresh.status !== 200) {
+      throw new Error(`refresh ${fresh.status}`);
+    }
+    const stale = await form("/token", {
+      grant_type: "refresh_token",
+      refresh_token: renew,
+    });
+    if (stale.status === 200) {
+      throw new Error("old refresh survived rotation");
+    }
+  });
+
+  await check("a wrong verifier is refused", async () => {
+    const pk = await pkce();
+    const code = await dance(sailor.head, pk.challenge);
+    const grip = await form("/token", {
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: "http://127.0.0.1:9999/cb",
+      client_id: "portal",
+      code_verifier: `${pk.verifier}-tamper`,
+    });
+    if (grip.status === 200) {
+      throw new Error("PKCE bypassed");
+    }
+  });
+
   io.print("act: clean");
 } catch (err) {
   failed = true;
@@ -259,6 +346,92 @@ function cookie(reply: Reply): string {
     throw new Error("no session cookie");
   }
   return hit[0];
+}
+
+async function form(
+  path: string,
+  fields: Record<string, string>,
+): Promise<Reply> {
+  const body = new URLSearchParams(fields).toString();
+  const res = await fetch(`${base}${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  return { status: res.status, body: await parse(res), headers: res.headers };
+}
+
+async function dance(
+  head: Record<string, string>,
+  challenge: string,
+): Promise<string> {
+  const query = new URLSearchParams({
+    response_type: "code",
+    client_id: "portal",
+    redirect_uri: "http://127.0.0.1:9999/cb",
+    scope: "openid profile",
+    state: "voyage",
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+  });
+  const res = await fetch(`${base}/authorize?${query}`, {
+    headers: head,
+    redirect: "manual",
+  });
+  await res.body?.cancel();
+  const loc = res.headers.get("location") ?? "";
+  const code = new URL(loc).searchParams.get("code");
+  if (!code) {
+    throw new Error(`no code in ${loc || res.status}`);
+  }
+  return code;
+}
+
+async function pkce(): Promise<{ verifier: string; challenge: string }> {
+  const verifier = `${await digest("voyage")}${await digest("anchor")}`;
+  const raw = new TextEncoder().encode(verifier);
+  const sum = await crypto.subtle.digest("SHA-256", raw);
+  const challenge = b64url(new Uint8Array(sum));
+  return { verifier, challenge };
+}
+
+async function attest(token: string): Promise<Record<string, string>> {
+  const set = await get("/.well-known/jwks.json");
+  const jwk = (set.body as { keys: Record<string, unknown>[] }).keys[0];
+  const key = await crypto.subtle.importKey(
+    "jwk",
+    { ...jwk, ext: true },
+    { name: "ECDSA", namedCurve: "P-256" },
+    false,
+    ["verify"],
+  );
+  const [head, load, seal] = token.split(".");
+  const data = new TextEncoder().encode(`${head}.${load}`);
+  const sig = unb64url(seal);
+  const ok = await crypto.subtle.verify(
+    { name: "ECDSA", hash: "SHA-256" },
+    key,
+    sig as BufferSource,
+    data as BufferSource,
+  );
+  if (!ok) {
+    throw new Error("id token signature invalid");
+  }
+  return JSON.parse(new TextDecoder().decode(unb64url(load)));
+}
+
+function b64url(bytes: Uint8Array): string {
+  let raw = "";
+  for (const byte of bytes) {
+    raw += String.fromCharCode(byte);
+  }
+  return btoa(raw).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function unb64url(text: string): Uint8Array {
+  const pad = text.replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(pad + "=".repeat((4 - pad.length % 4) % 4));
+  return Uint8Array.from(raw, (ch) => ch.charCodeAt(0));
 }
 
 type Face = { id: number; head: Record<string, string> };

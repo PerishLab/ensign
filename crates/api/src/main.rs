@@ -1,3 +1,5 @@
+mod oidc;
+
 use argon2::Argon2;
 use argon2::password_hash::rand_core::OsRng;
 use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
@@ -78,6 +80,16 @@ struct App {
     mode: string,
 }
 
+#[resource]
+struct Renew {
+    #[field(string, unique)]
+    hash: string,
+    #[field(string)]
+    slug: string,
+    #[relation(Actor, many2one, root)]
+    actor: Actor,
+}
+
 keel_gate::gate!(Actor);
 
 struct Booth<S: Store> {
@@ -102,7 +114,8 @@ fn shape() -> Graph {
         .plug::<Invite>()
         .plug::<Rescue>()
         .plug::<Team>()
-        .plug::<App>();
+        .plug::<App>()
+        .plug::<Renew>();
     plug(&mut graph);
     graph
 }
@@ -180,7 +193,11 @@ async fn serve<S: Store + 'static>(core: Arc<Core<S>>, cfg: &config::Config) {
         .route("/mint", post(mint::<S>))
         .route("/revive", post(revive::<S>))
         .with_state(booth);
-    let base = app(core.clone(), &cfg.listen.prefix).merge(plate);
+    let iss = format!("http://{}:{}", cfg.listen.host, cfg.listen.port);
+    let flags = oidc::Oidc::new(core.clone(), svc, iss).plate();
+    let base = app(core.clone(), &cfg.listen.prefix)
+        .merge(plate)
+        .merge(flags);
     let router = door.screen(base);
     let addr = format!("{}:{}", cfg.listen.host, cfg.listen.port);
     let bound = match tokio::net::TcpListener::bind(&addr).await {
@@ -253,6 +270,10 @@ fn sow<S: Store>(core: &Arc<Core<S>>, svc: i64) -> Result<(), keel::adapt::Error
         ("see", "Pass"),
         ("see", "Rescue"),
         ("end", "Rescue"),
+        ("see", "App"),
+        ("see", "Renew"),
+        ("put", "Renew"),
+        ("end", "Renew"),
     ] {
         sudo.put(
             "@grant",

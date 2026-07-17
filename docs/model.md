@@ -22,8 +22,10 @@ become keel issues and registry releases, never local workarounds.
   `name` string, `slug` string unique, `home` url, `redirect` url,
   `secret` string (hash, empty for public PKCE clients), `mode`
   string (oidc | forward).
-- `Renew` — OIDC refresh grant. `hash` string unique, many2one root
-  at Actor, many2one to App. Expiry rides lease.
+- `Renew` — OIDC refresh grant. `hash` string unique, `slug` string
+  (the client), many2one root at Actor. Rotated on use; expiry rides
+  lease. The App tie is carried by slug, not an edge (refresh reads
+  it flat).
 - `Token` / `Session` — gate package units (bearer + cookie),
   rooted at Actor.
 - `@grant` — engine unit; all administration is six verbs on rows.
