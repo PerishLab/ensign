@@ -100,6 +100,158 @@ impl<S: Store + 'static> Oidc<S> {
             .route("/userinfo", get(userinfo::<S>))
             .with_state(self)
     }
+
+    fn open(&self, ask: Ask, actor: i64) -> Response {
+        if ask.kind != "code" || ask.method != "S256" {
+            return StatusCode::BAD_REQUEST.into_response();
+        }
+        let Some(app) = self.client(&ask.client) else {
+            return StatusCode::BAD_REQUEST.into_response();
+        };
+        if cell(&app, "redirect") != ask.redirect || cell(&app, "mode") != "oidc" {
+            return StatusCode::BAD_REQUEST.into_response();
+        }
+        let grant = wild();
+        self.codes.lock().expect("codes").insert(
+            grant.clone(),
+            Code {
+                actor,
+                client: ask.client,
+                redirect: ask.redirect.clone(),
+                challenge: ask.challenge,
+                scope: ask.scope,
+                dies: now() + GRACE,
+            },
+        );
+        let back = format!("{}?code={}&state={}", ask.redirect, grant, ask.state);
+        Redirect::to(&back).into_response()
+    }
+
+    fn trade(&self, grant: Grant) -> Grip {
+        let key = grant.code.ok_or_else(|| sour("invalid_request"))?;
+        let held = self.codes.lock().expect("codes").remove(&key);
+        let code = held.ok_or_else(|| sour("invalid_grant"))?;
+        if code.dies < now() {
+            return Err(sour("invalid_grant"));
+        }
+        if grant.client.as_deref() != Some(&code.client)
+            || grant.redirect.as_deref() != Some(&code.redirect)
+        {
+            return Err(sour("invalid_grant"));
+        }
+        let verifier = grant.verifier.ok_or_else(|| sour("invalid_request"))?;
+        if seal(&verifier) != code.challenge {
+            return Err(sour("invalid_grant"));
+        }
+        self.grip(code.actor, &code.client, &code.scope)
+    }
+
+    fn renew(&self, grant: Grant) -> Grip {
+        let token = grant.renew.ok_or_else(|| sour("invalid_request"))?;
+        let row = self.warrant(&token).ok_or_else(|| sour("invalid_grant"))?;
+        let face = self.core.of(self.svc);
+        face.end("Renew", row.0).map_err(|_| sour("server_error"))?;
+        self.grip(row.1, &row.2, "openid profile")
+    }
+
+    fn grip(&self, actor: i64, client: &str, scope: &str) -> Grip {
+        let who = self.person(actor).ok_or_else(|| sour("server_error"))?;
+        let sub = actor.to_string();
+        let wide = scope.split_whitespace().any(|word| word == "profile");
+        let id = self
+            .sign(&sub, &who, client, wide)
+            .map_err(|_| sour("server_error"))?;
+        let reach = self
+            .sign(&sub, &who, &self.iss, false)
+            .map_err(|_| sour("server_error"))?;
+        let fresh = wild();
+        self.mint(actor, client, &fresh)
+            .map_err(|_| sour("server_error"))?;
+        Ok(Json(json!({
+            "access_token": reach,
+            "id_token": id,
+            "refresh_token": fresh,
+            "token_type": "Bearer",
+            "expires_in": LIFE,
+            "scope": scope,
+        })))
+    }
+
+    fn look(&self, token: &str) -> Result<Json<Value>, StatusCode> {
+        let mut rule = Validation::new(Algorithm::ES256);
+        rule.set_issuer(&[&self.iss]);
+        rule.set_audience(&[&self.iss]);
+        let data =
+            decode::<Value>(token, &self.keys.dec, &rule).map_err(|_| StatusCode::UNAUTHORIZED)?;
+        let sub = data.claims.get("sub").and_then(Value::as_str).unwrap_or("");
+        let id: i64 = sub.parse().map_err(|_| StatusCode::UNAUTHORIZED)?;
+        let who = self.person(id).ok_or(StatusCode::NOT_FOUND)?;
+        Ok(Json(
+            json!({ "sub": sub, "login": who.login, "name": who.name }),
+        ))
+    }
+
+    fn person(&self, id: i64) -> Option<Who> {
+        let q = format!(r#"from Actor where id = "{id}""#);
+        let pack = self.core.of(self.svc).query(&q).ok()?;
+        let row = pack.rows().first()?;
+        Some(Who {
+            login: row.cells().get("login").map(Cell::show)?,
+            name: row.cells().get("name").map(Cell::show).unwrap_or_default(),
+        })
+    }
+
+    fn client(&self, slug: &str) -> Option<keel::Row> {
+        let q = format!(r#"from App where slug = "{slug}""#);
+        let pack = self.core.of(self.svc).query(&q).ok()?;
+        pack.rows().first().cloned()
+    }
+
+    fn warrant(&self, token: &str) -> Option<(i64, i64, String)> {
+        let q = format!(r#"from Renew where hash = "{}""#, seal(token));
+        let pack = self.core.of(self.svc).query(&q).ok()?;
+        let row = pack.rows().first()?;
+        let actor = match row.cells().get("actor") {
+            Some(Cell::Int(key)) => *key,
+            _ => return None,
+        };
+        let slug = row.cells().get("slug").map(Cell::show)?;
+        Some((row.key(), actor, slug))
+    }
+
+    fn mint(&self, actor: i64, client: &str, token: &str) -> Result<(), keel::adapt::Error> {
+        let face = self.core.of(self.svc);
+        let row = face.put(
+            "Renew",
+            &[
+                ("hash", &seal(token)),
+                ("slug", client),
+                ("actor", &actor.to_string()),
+            ],
+        )?;
+        face.lease("Renew", row, now() + RENEW)
+    }
+
+    fn sign(
+        &self,
+        sub: &str,
+        who: &Who,
+        aud: &str,
+        wide: bool,
+    ) -> Result<String, jsonwebtoken::errors::Error> {
+        let mut head = Header::new(Algorithm::ES256);
+        head.kid = Some(self.keys.kid.clone());
+        let claims = Claims {
+            iss: self.iss.clone(),
+            sub: sub.to_string(),
+            aud: aud.to_string(),
+            exp: now() + LIFE,
+            iat: now(),
+            login: wide.then(|| who.login.clone()),
+            name: wide.then(|| who.name.clone()),
+        };
+        encode(&head, &claims, &self.keys.enc)
+    }
 }
 
 async fn disco<S: Store>(State(oidc): State<Oidc<S>>) -> Json<Value> {
@@ -150,29 +302,7 @@ async fn authorize<S: Store + 'static>(
     let Some(Extension(Operator(actor))) = op else {
         return StatusCode::UNAUTHORIZED.into_response();
     };
-    if ask.kind != "code" || ask.method != "S256" {
-        return StatusCode::BAD_REQUEST.into_response();
-    }
-    let Some(app) = client(&oidc, &ask.client) else {
-        return StatusCode::BAD_REQUEST.into_response();
-    };
-    if cell(&app, "redirect") != ask.redirect || cell(&app, "mode") != "oidc" {
-        return StatusCode::BAD_REQUEST.into_response();
-    }
-    let grant = wild();
-    oidc.codes.lock().expect("codes").insert(
-        grant.clone(),
-        Code {
-            actor,
-            client: ask.client,
-            redirect: ask.redirect.clone(),
-            challenge: ask.challenge,
-            scope: ask.scope,
-            dies: now() + GRACE,
-        },
-    );
-    let back = format!("{}?code={}&state={}", ask.redirect, grant, ask.state);
-    Redirect::to(&back).into_response()
+    oidc.open(ask, actor)
 }
 
 #[derive(Deserialize)]
@@ -194,55 +324,10 @@ type Grip = Result<Json<Value>, (StatusCode, Json<Value>)>;
 
 async fn token<S: Store + 'static>(State(oidc): State<Oidc<S>>, Form(grant): Form<Grant>) -> Grip {
     match grant.kind.as_str() {
-        "authorization_code" => trade(&oidc, grant),
-        "refresh_token" => renew(&oidc, grant),
+        "authorization_code" => oidc.trade(grant),
+        "refresh_token" => oidc.renew(grant),
         _ => Err(sour("unsupported_grant_type")),
     }
-}
-
-fn trade<S: Store + 'static>(oidc: &Oidc<S>, grant: Grant) -> Grip {
-    let key = grant.code.ok_or_else(|| sour("invalid_request"))?;
-    let held = oidc.codes.lock().expect("codes").remove(&key);
-    let code = held.ok_or_else(|| sour("invalid_grant"))?;
-    if code.dies < now() {
-        return Err(sour("invalid_grant"));
-    }
-    if grant.client.as_deref() != Some(&code.client)
-        || grant.redirect.as_deref() != Some(&code.redirect)
-    {
-        return Err(sour("invalid_grant"));
-    }
-    let verifier = grant.verifier.ok_or_else(|| sour("invalid_request"))?;
-    if seal(&verifier) != code.challenge {
-        return Err(sour("invalid_grant"));
-    }
-    grip(oidc, code.actor, &code.client, &code.scope)
-}
-
-fn renew<S: Store + 'static>(oidc: &Oidc<S>, grant: Grant) -> Grip {
-    let token = grant.renew.ok_or_else(|| sour("invalid_request"))?;
-    let row = warrant(oidc, &token).ok_or_else(|| sour("invalid_grant"))?;
-    let face = oidc.core.of(oidc.svc);
-    face.end("Renew", row.0).map_err(|_| sour("server_error"))?;
-    grip(oidc, row.1, &row.2, "openid profile")
-}
-
-fn grip<S: Store + 'static>(oidc: &Oidc<S>, actor: i64, client: &str, scope: &str) -> Grip {
-    let who = person(oidc, actor).ok_or_else(|| sour("server_error"))?;
-    let sub = actor.to_string();
-    let wide = scope.split_whitespace().any(|word| word == "profile");
-    let id = sign(oidc, &sub, &who, client, wide).map_err(|_| sour("server_error"))?;
-    let reach = sign(oidc, &sub, &who, &oidc.iss, false).map_err(|_| sour("server_error"))?;
-    let fresh = wild();
-    mint(oidc, actor, client, &fresh).map_err(|_| sour("server_error"))?;
-    Ok(Json(json!({
-        "access_token": reach,
-        "id_token": id,
-        "refresh_token": fresh,
-        "token_type": "Bearer",
-        "expires_in": LIFE,
-        "scope": scope,
-    })))
 }
 
 async fn userinfo<S: Store + 'static>(
@@ -250,68 +335,12 @@ async fn userinfo<S: Store + 'static>(
     headers: HeaderMap,
 ) -> Result<Json<Value>, StatusCode> {
     let token = bearer(&headers).ok_or(StatusCode::UNAUTHORIZED)?;
-    let mut rule = Validation::new(Algorithm::ES256);
-    rule.set_issuer(&[&oidc.iss]);
-    rule.set_audience(&[&oidc.iss]);
-    let data =
-        decode::<Value>(&token, &oidc.keys.dec, &rule).map_err(|_| StatusCode::UNAUTHORIZED)?;
-    let sub = data.claims.get("sub").and_then(Value::as_str).unwrap_or("");
-    let id: i64 = sub.parse().map_err(|_| StatusCode::UNAUTHORIZED)?;
-    let who = person(&oidc, id).ok_or(StatusCode::NOT_FOUND)?;
-    Ok(Json(
-        json!({ "sub": sub, "login": who.login, "name": who.name }),
-    ))
+    oidc.look(&token)
 }
 
 struct Who {
     login: String,
     name: String,
-}
-
-fn person<S: Store>(oidc: &Oidc<S>, id: i64) -> Option<Who> {
-    let q = format!(r#"from Actor where id = "{id}""#);
-    let pack = oidc.core.of(oidc.svc).query(&q).ok()?;
-    let row = pack.rows().first()?;
-    Some(Who {
-        login: row.cells().get("login").map(Cell::show)?,
-        name: row.cells().get("name").map(Cell::show).unwrap_or_default(),
-    })
-}
-
-fn client<S: Store>(oidc: &Oidc<S>, slug: &str) -> Option<keel::Row> {
-    let q = format!(r#"from App where slug = "{slug}""#);
-    let pack = oidc.core.of(oidc.svc).query(&q).ok()?;
-    pack.rows().first().cloned()
-}
-
-fn warrant<S: Store>(oidc: &Oidc<S>, token: &str) -> Option<(i64, i64, String)> {
-    let q = format!(r#"from Renew where hash = "{}""#, seal(token));
-    let pack = oidc.core.of(oidc.svc).query(&q).ok()?;
-    let row = pack.rows().first()?;
-    let actor = match row.cells().get("actor") {
-        Some(Cell::Int(key)) => *key,
-        _ => return None,
-    };
-    let slug = row.cells().get("slug").map(Cell::show)?;
-    Some((row.key(), actor, slug))
-}
-
-fn mint<S: Store>(
-    oidc: &Oidc<S>,
-    actor: i64,
-    client: &str,
-    token: &str,
-) -> Result<(), keel::adapt::Error> {
-    let face = oidc.core.of(oidc.svc);
-    let row = face.put(
-        "Renew",
-        &[
-            ("hash", &seal(token)),
-            ("slug", client),
-            ("actor", &actor.to_string()),
-        ],
-    )?;
-    face.lease("Renew", row, now() + RENEW)
 }
 
 #[derive(Serialize)]
@@ -325,27 +354,6 @@ struct Claims {
     login: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     name: Option<String>,
-}
-
-fn sign<S: Store>(
-    oidc: &Oidc<S>,
-    sub: &str,
-    who: &Who,
-    aud: &str,
-    wide: bool,
-) -> Result<String, jsonwebtoken::errors::Error> {
-    let mut head = Header::new(Algorithm::ES256);
-    head.kid = Some(oidc.keys.kid.clone());
-    let claims = Claims {
-        iss: oidc.iss.clone(),
-        sub: sub.to_string(),
-        aud: aud.to_string(),
-        exp: now() + LIFE,
-        iat: now(),
-        login: wide.then(|| who.login.clone()),
-        name: wide.then(|| who.name.clone()),
-    };
-    encode(&head, &claims, &oidc.keys.enc)
 }
 
 fn bearer(headers: &HeaderMap) -> Option<String> {

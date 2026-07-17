@@ -106,6 +106,83 @@ impl<S: Store> Clone for Booth<S> {
     }
 }
 
+impl<S: Store + 'static> Booth<S> {
+    fn card(&self, code: &str) -> Option<i64> {
+        let q = format!(r#"from Invite where hash = "{}""#, digest(code));
+        let pack = self.core.of(self.svc).query(&q).ok()?;
+        pack.rows().first().map(keel::Row::key)
+    }
+
+    fn birth(&self, login: &str, name: &str) -> Result<i64, keel::adapt::Error> {
+        let sudo = self.core.sudo();
+        let key = sudo.put(
+            "Actor",
+            &[
+                ("login", login),
+                ("name", name),
+                ("kind", "user"),
+                ("barred", "false"),
+            ],
+        )?;
+        sudo.put(
+            "@grant",
+            &[
+                ("who", &key.to_string()),
+                ("verb", "*"),
+                ("unit", "Actor"),
+                ("scope", &format!("row {key}")),
+            ],
+        )?;
+        Ok(key)
+    }
+
+    fn actor(&self, login: &str) -> Option<i64> {
+        let q = format!(r#"from Actor where login = "{login}""#);
+        let pack = self.core.of(self.svc).query(&q).ok()?;
+        pack.rows().first().map(keel::Row::key)
+    }
+
+    fn shield(&self, key: i64) -> Option<String> {
+        let q = format!(r#"from Pass where actor = "{key}""#);
+        let pack = self.core.of(self.svc).query(&q).ok()?;
+        let row = pack.rows().first()?;
+        row.cells().get("hash").map(Cell::show)
+    }
+
+    fn spare(&self, key: i64, code: &str) -> Option<i64> {
+        let q = format!(r#"from Rescue where actor = "{key}""#);
+        let pack = self.core.of(self.svc).query(&q).ok()?;
+        let mark = digest(code);
+        let hit = pack
+            .rows()
+            .iter()
+            .find(|row| row.cells().get("hash").map(Cell::show) == Some(mark.clone()))?;
+        Some(hit.key())
+    }
+
+    fn session(&self, key: i64) -> Result<(StatusCode, HeaderMap, Json<Value>), StatusCode> {
+        let sid = wild();
+        let row = self
+            .core
+            .of(self.svc)
+            .put(
+                "Session",
+                &[("hash", &digest(&sid)), ("actor", &key.to_string())],
+            )
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        self.core
+            .lease("Session", row, now() + TTL)
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let mut headers = HeaderMap::new();
+        let jar = format!("session={sid}; HttpOnly; Path=/");
+        headers.insert(
+            "set-cookie",
+            jar.parse().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
+        );
+        Ok((StatusCode::CREATED, headers, Json(json!({ "id": row }))))
+    }
+}
+
 fn shape() -> Graph {
     let mut graph = Graph::new();
     graph
@@ -174,9 +251,6 @@ fn raise<S: Store + 'static>(
 }
 
 async fn serve<S: Store + 'static>(core: Arc<Core<S>>, cfg: &config::Config) {
-    if let Err(err) = seed(&core) {
-        halt("seed", &err.to_string());
-    }
     let (door, svc) = match rig(&core) {
         Ok(pair) => pair,
         Err(err) => halt("rise", &err.to_string()),
@@ -218,7 +292,7 @@ fn halt(seat: &str, note: &str) -> ! {
 fn rig<S: Store + 'static>(core: &Arc<Core<S>>) -> Result<(Gate<S>, i64), keel::adapt::Error> {
     let svc = hail(core)?;
     let gate = Gate::rise(core.clone(), svc)?.bar("barred");
-    sow(core, svc)?;
+    seed(core, svc)?;
     Ok((gate, svc))
 }
 
@@ -238,12 +312,13 @@ fn hail<S: Store>(core: &Arc<Core<S>>) -> Result<i64, keel::adapt::Error> {
     }
 }
 
-fn seed<S: Store>(core: &Arc<Core<S>>) -> Result<(), keel::adapt::Error> {
+fn seed<S: Store>(core: &Arc<Core<S>>, svc: i64) -> Result<(), keel::adapt::Error> {
     let sown = core.query(r#"from @grant where who = "all" count"#)?;
     if sown.count() != Some(0) {
         return Ok(());
     }
     let sudo = core.sudo();
+    let who = svc.to_string();
     for unit in ["Actor", "Team", "App"] {
         sudo.put(
             "@grant",
@@ -255,15 +330,6 @@ fn seed<S: Store>(core: &Arc<Core<S>>) -> Result<(), keel::adapt::Error> {
             ],
         )?;
     }
-    Ok(())
-}
-
-fn sow<S: Store>(core: &Arc<Core<S>>, svc: i64) -> Result<(), keel::adapt::Error> {
-    let q = format!(r#"from @grant where who = "{svc}" and unit = "Invite" count"#);
-    if core.query(&q)?.count() != Some(0) {
-        return Ok(());
-    }
-    let sudo = core.sudo();
     for (verb, unit) in [
         ("see", "Invite"),
         ("end", "Invite"),
@@ -278,7 +344,7 @@ fn sow<S: Store>(core: &Arc<Core<S>>, svc: i64) -> Result<(), keel::adapt::Error
         sudo.put(
             "@grant",
             &[
-                ("who", &svc.to_string()),
+                ("who", &who),
                 ("verb", verb),
                 ("unit", unit),
                 ("scope", "all"),
@@ -296,8 +362,10 @@ async fn join<S: Store + 'static>(
     let login = text(&body, "login")?;
     let name = text(&body, "name")?;
     let pass = text(&body, "pass")?;
-    let card = card(&booth, &code).ok_or(StatusCode::NOT_FOUND)?;
-    let key = birth(&booth, &login, &name).map_err(|_| StatusCode::CONFLICT)?;
+    let card = booth.card(&code).ok_or(StatusCode::NOT_FOUND)?;
+    let key = booth
+        .birth(&login, &name)
+        .map_err(|_| StatusCode::CONFLICT)?;
     let hash = lock(&pass).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     booth
         .core
@@ -312,86 +380,18 @@ async fn join<S: Store + 'static>(
     Ok((StatusCode::CREATED, Json(json!({ "id": key }))))
 }
 
-fn card<S: Store>(booth: &Booth<S>, code: &str) -> Option<i64> {
-    let q = format!(r#"from Invite where hash = "{}""#, digest(code));
-    let pack = booth.core.of(booth.svc).query(&q).ok()?;
-    pack.rows().first().map(keel::Row::key)
-}
-
-fn birth<S: Store>(booth: &Booth<S>, login: &str, name: &str) -> Result<i64, keel::adapt::Error> {
-    let sudo = booth.core.sudo();
-    let key = sudo.put(
-        "Actor",
-        &[
-            ("login", login),
-            ("name", name),
-            ("kind", "user"),
-            ("barred", "false"),
-        ],
-    )?;
-    sudo.put(
-        "@grant",
-        &[
-            ("who", &key.to_string()),
-            ("verb", "*"),
-            ("unit", "Actor"),
-            ("scope", &format!("row {key}")),
-        ],
-    )?;
-    Ok(key)
-}
-
 async fn login<S: Store + 'static>(
     State(booth): State<Booth<S>>,
     Json(body): Json<Map<String, Value>>,
 ) -> Result<(StatusCode, HeaderMap, Json<Value>), StatusCode> {
     let login = text(&body, "login")?;
     let pass = text(&body, "pass")?;
-    let key = actor(&booth, &login).ok_or(StatusCode::UNAUTHORIZED)?;
-    let hash = shield(&booth, key).ok_or(StatusCode::UNAUTHORIZED)?;
+    let key = booth.actor(&login).ok_or(StatusCode::UNAUTHORIZED)?;
+    let hash = booth.shield(key).ok_or(StatusCode::UNAUTHORIZED)?;
     if !fits(&pass, &hash) {
         return Err(StatusCode::UNAUTHORIZED);
     }
-    session(&booth, key)
-}
-
-fn actor<S: Store>(booth: &Booth<S>, login: &str) -> Option<i64> {
-    let q = format!(r#"from Actor where login = "{login}""#);
-    let pack = booth.core.of(booth.svc).query(&q).ok()?;
-    pack.rows().first().map(keel::Row::key)
-}
-
-fn shield<S: Store>(booth: &Booth<S>, key: i64) -> Option<String> {
-    let q = format!(r#"from Pass where actor = "{key}""#);
-    let pack = booth.core.of(booth.svc).query(&q).ok()?;
-    let row = pack.rows().first()?;
-    row.cells().get("hash").map(Cell::show)
-}
-
-fn session<S: Store>(
-    booth: &Booth<S>,
-    key: i64,
-) -> Result<(StatusCode, HeaderMap, Json<Value>), StatusCode> {
-    let sid = wild();
-    let row = booth
-        .core
-        .of(booth.svc)
-        .put(
-            "Session",
-            &[("hash", &digest(&sid)), ("actor", &key.to_string())],
-        )
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    booth
-        .core
-        .lease("Session", row, now() + TTL)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let mut headers = HeaderMap::new();
-    let jar = format!("session={sid}; HttpOnly; Path=/");
-    headers.insert(
-        "set-cookie",
-        jar.parse().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
-    );
-    Ok((StatusCode::CREATED, headers, Json(json!({ "id": row }))))
+    booth.session(key)
 }
 
 async fn logout<S: Store + 'static>(
@@ -469,25 +469,14 @@ async fn revive<S: Store + 'static>(
 ) -> Result<(StatusCode, HeaderMap, Json<Value>), StatusCode> {
     let login = text(&body, "login")?;
     let code = text(&body, "code")?;
-    let key = actor(&booth, &login).ok_or(StatusCode::UNAUTHORIZED)?;
-    let spare = spare(&booth, key, &code).ok_or(StatusCode::UNAUTHORIZED)?;
+    let key = booth.actor(&login).ok_or(StatusCode::UNAUTHORIZED)?;
+    let spare = booth.spare(key, &code).ok_or(StatusCode::UNAUTHORIZED)?;
     booth
         .core
         .of(booth.svc)
         .end("Rescue", spare)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    session(&booth, key)
-}
-
-fn spare<S: Store>(booth: &Booth<S>, key: i64, code: &str) -> Option<i64> {
-    let q = format!(r#"from Rescue where actor = "{key}""#);
-    let pack = booth.core.of(booth.svc).query(&q).ok()?;
-    let mark = digest(code);
-    let hit = pack
-        .rows()
-        .iter()
-        .find(|row| row.cells().get("hash").map(Cell::show) == Some(mark.clone()))?;
-    Some(hit.key())
+    booth.session(key)
 }
 
 fn owner(row: &keel::Row) -> Option<i64> {
