@@ -3,3 +3,4 @@
 /.task
 node_modules/
 dist/
+.playwright-cli/
