@@ -5,6 +5,7 @@ use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::routing::{get, post};
 use axum::{Extension, Json, Router};
+use keel::adapt::pg::Postgres;
 use keel::atom::string;
 use keel::config;
 use keel::resource;
@@ -83,12 +84,37 @@ fn shape() -> Graph {
 async fn main() {
     let root = env::args().nth(1).unwrap_or_else(|| ".".into());
     let cfg = config::load(Path::new(&root));
-    let store = match cfg.open() {
-        Ok(store) => store,
-        Err(err) => halt("config", &err.to_string()),
-    };
-    let core = raise(bind(shape(), store), &cfg);
-    serve(core, &cfg).await;
+    match env::var("KEEL_PG") {
+        Ok(url) => {
+            if env::var("KEEL_FRESH").is_ok() {
+                fresh(&url);
+            }
+            let core = raise(bind(shape(), Postgres::at(url)), &cfg);
+            serve(core, &cfg).await;
+        }
+        Err(_) => {
+            let store = match cfg.open() {
+                Ok(store) => store,
+                Err(err) => halt("config", &err.to_string()),
+            };
+            let core = raise(bind(shape(), store), &cfg);
+            serve(core, &cfg).await;
+        }
+    }
+}
+
+fn fresh(url: &str) {
+    let url = url.to_string();
+    let done = std::thread::spawn(move || {
+        let mut client = postgres::Client::connect(&url, postgres::NoTls)?;
+        client.batch_execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
+    })
+    .join();
+    match done {
+        Ok(Ok(())) => {}
+        Ok(Err(err)) => halt("fresh", &err.to_string()),
+        Err(_) => halt("fresh", "reset thread panicked"),
+    }
 }
 
 fn raise<S: Store + 'static>(

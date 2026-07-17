@@ -12,7 +12,8 @@ repository = "https://git.perish.top/PerishLab/ensign"
 argon2 = { version = "0.5", features = ["std"] }
 password-hash = { version = "0.5", features = ["getrandom"] }
 axum = "0.8"
-keel = { version = "0.1.12", registry = "perish" }
+keel = { version = "0.1.12", registry = "perish", features = ["pg"] }
+postgres = "0.19"
 keel-gate = { version = "0.1.12", registry = "perish" }
 serde_json = "1"
 sha2 = "0.10"

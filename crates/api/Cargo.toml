@@ -18,5 +18,6 @@ axum = { workspace = true }
 keel = { workspace = true }
 keel-gate = { workspace = true }
 serde_json = { workspace = true }
+postgres = { workspace = true }
 sha2 = { workspace = true }
 tokio = { workspace = true }

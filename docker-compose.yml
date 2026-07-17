@@ -1,0 +1,14 @@
+services:
+  pg:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ensign
+      POSTGRES_PASSWORD: ensign
+      POSTGRES_DB: ensign
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ensign"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
