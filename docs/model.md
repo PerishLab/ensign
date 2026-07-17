@@ -19,9 +19,9 @@ become keel issues and registry releases, never local workarounds.
 - `Team` — the group unit. `name` string unique, `members` many2many
   Actor with the `crew` marker (group grants expand live).
 - `App` — the application registry, one unit for both provider faces.
-  `name` string, `slug` string unique, `url` string, `redirect`
-  string, `secret` string (hash, empty for public PKCE clients),
-  `mode` string (oidc | forward).
+  `name` string, `slug` string unique, `home` url, `redirect` url,
+  `secret` string (hash, empty for public PKCE clients), `mode`
+  string (oidc | forward).
 - `Renew` — OIDC refresh grant. `hash` string unique, many2one root
   at Actor, many2one to App. Expiry rides lease.
 - `Token` / `Session` — gate package units (bearer + cookie),

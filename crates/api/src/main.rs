@@ -7,6 +7,7 @@ use axum::routing::{get, post};
 use axum::{Extension, Json, Router};
 use keel::adapt::pg::Postgres;
 use keel::atom::string;
+use keel::atom::url as link;
 use keel::config;
 use keel::resource;
 use keel::store::Store;
@@ -53,6 +54,30 @@ struct Rescue {
     actor: Actor,
 }
 
+#[resource]
+struct Team {
+    #[field(string, unique)]
+    name: string,
+    #[relation(Actor, many2many, crew)]
+    members: Actor,
+}
+
+#[resource]
+struct App {
+    #[field(string)]
+    name: string,
+    #[field(string, unique)]
+    slug: string,
+    #[field(url)]
+    home: link,
+    #[field(url)]
+    redirect: link,
+    #[field(string)]
+    secret: string,
+    #[field(string)]
+    mode: string,
+}
+
 keel_gate::gate!(Actor);
 
 struct Booth<S: Store> {
@@ -75,7 +100,9 @@ fn shape() -> Graph {
         .plug::<Actor>()
         .plug::<Pass>()
         .plug::<Invite>()
-        .plug::<Rescue>();
+        .plug::<Rescue>()
+        .plug::<Team>()
+        .plug::<App>();
     plug(&mut graph);
     graph
 }
@@ -199,15 +226,18 @@ fn seed<S: Store>(core: &Arc<Core<S>>) -> Result<(), keel::adapt::Error> {
     if sown.count() != Some(0) {
         return Ok(());
     }
-    core.sudo().put(
-        "@grant",
-        &[
-            ("who", "all"),
-            ("verb", "see"),
-            ("unit", "Actor"),
-            ("scope", "all"),
-        ],
-    )?;
+    let sudo = core.sudo();
+    for unit in ["Actor", "Team", "App"] {
+        sudo.put(
+            "@grant",
+            &[
+                ("who", "all"),
+                ("verb", "see"),
+                ("unit", unit),
+                ("scope", "all"),
+            ],
+        )?;
+    }
     Ok(())
 }
 

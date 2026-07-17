@@ -134,6 +134,79 @@ try {
     }
   });
 
+  io.print("==> act 2: directory");
+  const boss = await enrol(crown, "boss");
+  const hand = await enrol(crown, "hand");
+  const guest = await enrol(crown, "guest");
+  await grant(crown, { who: boss.id, verb: "*", unit: "App", scope: "all" });
+  await grant(crown, { who: boss.id, verb: "*", unit: "Team", scope: "all" });
+
+  await check("admin registers an app, stranger refused", async () => {
+    const made = await post("/App", {
+      name: "Wiki",
+      slug: "wiki",
+      home: "https://wiki.perish.top",
+      redirect: "https://wiki.perish.top/callback",
+      secret: "",
+      mode: "oidc",
+    }, boss.head);
+    if (made.status !== 201) {
+      throw new Error(`register ${made.status}`);
+    }
+    const seen = await get("/App", hand.head);
+    const rows = seen.body as unknown[];
+    if (!Array.isArray(rows) || rows.length !== 1) {
+      throw new Error(`member sees ${JSON.stringify(seen.body)}`);
+    }
+    const barred = await post("/App", {
+      name: "Rogue",
+      slug: "rogue",
+      home: "https://x",
+      redirect: "https://x/cb",
+      secret: "",
+      mode: "oidc",
+    }, guest.head);
+    if (barred.status !== 403) {
+      throw new Error(`stranger app ${barred.status}`);
+    }
+  });
+
+  await check("a team grant admits and revokes", async () => {
+    const team = await post("/Team", { name: "editors" }, boss.head);
+    const crew = (team.body as { id: number }).id;
+    await grant(crown, {
+      who: `Team ${crew}`,
+      verb: "put",
+      unit: "App",
+      scope: "all",
+    });
+    const before = await post("/App", app("one"), hand.head);
+    if (before.status !== 403) {
+      throw new Error(`pre-member write ${before.status}`);
+    }
+    const tie = await post(
+      `/Team/${crew}/members`,
+      { right: hand.id },
+      boss.head,
+    );
+    if (tie.status !== 201) {
+      throw new Error(`enrol ${tie.status}`);
+    }
+    const during = await post("/App", app("two"), hand.head);
+    if (during.status !== 201) {
+      throw new Error(`member write ${during.status}`);
+    }
+    const bond = (tie.body as { id: number }).id;
+    const cut = await drop(`/Team/${crew}/members/${bond}`, boss.head);
+    if (cut !== 204) {
+      throw new Error(`revoke ${cut}`);
+    }
+    const after = await post("/App", app("three"), hand.head);
+    if (after.status !== 403) {
+      throw new Error(`access outlived membership ${after.status}`);
+    }
+  });
+
   io.print("act: clean");
 } catch (err) {
   failed = true;
@@ -186,6 +259,60 @@ function cookie(reply: Reply): string {
     throw new Error("no session cookie");
   }
   return hit[0];
+}
+
+type Face = { id: number; head: Record<string, string> };
+
+async function enrol(
+  crown: Record<string, string>,
+  login: string,
+): Promise<Face> {
+  const code = `invite-${login}`;
+  await post("/invite", { hash: await digest(code), note: login }, crown);
+  const made = await post("/join", {
+    code,
+    login,
+    name: login,
+    pass: `pass-${login}`,
+  });
+  const id = (made.body as { id: number }).id;
+  const back = await post("/login", { login, pass: `pass-${login}` });
+  return { id, head: { cookie: cookie(back) } };
+}
+
+async function grant(
+  crown: Record<string, string>,
+  row: { who: number | string; verb: string; unit: string; scope: string },
+): Promise<void> {
+  const made = await post("/@grant", {
+    who: String(row.who),
+    verb: row.verb,
+    unit: row.unit,
+    scope: row.scope,
+  }, crown);
+  if (made.status !== 201) {
+    throw new Error(`grant ${made.status}`);
+  }
+}
+
+function app(slug: string): Record<string, unknown> {
+  return {
+    name: slug,
+    slug,
+    home: `https://${slug}.perish.top`,
+    redirect: `https://${slug}.perish.top/cb`,
+    secret: "",
+    mode: "oidc",
+  };
+}
+
+async function drop(
+  path: string,
+  head: Record<string, string>,
+): Promise<number> {
+  const res = await fetch(`${base}${path}`, { method: "DELETE", headers: head });
+  await res.body?.cancel();
+  return res.status;
 }
 
 async function digest(code: string): Promise<string> {

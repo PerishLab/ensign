@@ -25,3 +25,8 @@
 - `crumb` / `wild` / `digest` — cookie read / random hex / sha256
   (gate idioms).
 - `act` — the staged scenario runner over the api binary (`:act`).
+- `booth` also carries directory writes; `Team` is the crew group,
+  `App` the OIDC/forward client registry.
+- `enrol` / `grant` / `drop` — act helpers: register a user, seed a
+  grant, delete a tie.
+- `link` — the `url` atom, aliased to dodge local `url` bindings.
