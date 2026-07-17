@@ -9,5 +9,11 @@ license = "MIT"
 repository = "https://git.perish.top/PerishLab/ensign"
 
 [workspace.dependencies]
-keel = { version = "0.1.11", registry = "perish" }
-keel-gate = { version = "0.1.11", registry = "perish" }
+argon2 = { version = "0.5", features = ["std"] }
+password-hash = { version = "0.5", features = ["getrandom"] }
+axum = "0.8"
+keel = { version = "0.1.12", registry = "perish" }
+keel-gate = { version = "0.1.12", registry = "perish" }
+serde_json = "1"
+sha2 = "0.10"
+tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "time"] }
