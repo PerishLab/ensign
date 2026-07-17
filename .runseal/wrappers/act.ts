@@ -266,20 +266,68 @@ try {
     renew = bag.refresh_token;
   });
 
-  await check("refresh rotates and retires the old token", async () => {
+  await check("refresh binds to its client and rotates", async () => {
+    const loose = await form("/token", {
+      grant_type: "refresh_token",
+      refresh_token: renew,
+    });
+    if (loose.status === 200) {
+      throw new Error("refresh without client_id accepted");
+    }
+    const wrong = await form("/token", {
+      grant_type: "refresh_token",
+      refresh_token: renew,
+      client_id: "intruder",
+    });
+    if (wrong.status === 200) {
+      throw new Error("refresh accepted a mismatched client");
+    }
     const fresh = await form("/token", {
       grant_type: "refresh_token",
       refresh_token: renew,
+      client_id: "portal",
     });
     if (fresh.status !== 200) {
       throw new Error(`refresh ${fresh.status}`);
     }
+    if ((fresh.body as { scope?: string }).scope !== "openid profile") {
+      throw new Error("refresh widened the scope");
+    }
     const stale = await form("/token", {
       grant_type: "refresh_token",
       refresh_token: renew,
+      client_id: "portal",
     });
     if (stale.status === 200) {
       throw new Error("old refresh survived rotation");
+    }
+  });
+
+  await check("a barred owner cannot refresh", async () => {
+    const rope = await enrol(crown, "roper");
+    const pk = await pkce();
+    const code = await dance(rope.head, pk.challenge);
+    const grip = await form("/token", {
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: "http://127.0.0.1:9999/cb",
+      client_id: "portal",
+      code_verifier: pk.verifier,
+    });
+    const held = (grip.body as { refresh_token: string }).refresh_token;
+    const patch = await fetch(`${base}/Actor/${rope.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", ...crown },
+      body: JSON.stringify({ barred: "true" }),
+    });
+    await patch.body?.cancel();
+    const shut = await form("/token", {
+      grant_type: "refresh_token",
+      refresh_token: held,
+      client_id: "portal",
+    });
+    if (shut.status === 200) {
+      throw new Error("barred owner still refreshed");
     }
   });
 

@@ -86,6 +86,8 @@ struct Renew {
     hash: string,
     #[field(string)]
     slug: string,
+    #[field(string)]
+    scope: string,
     #[relation(Actor, many2one, root)]
     actor: Actor,
 }

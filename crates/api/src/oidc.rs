@@ -184,10 +184,18 @@ impl<S: Store + 'static> Oidc<S> {
 
     fn renew(&self, grant: Grant) -> Grip {
         let token = grant.renew.ok_or_else(|| sour("invalid_request"))?;
-        let row = self.warrant(&token).ok_or_else(|| sour("invalid_grant"))?;
-        let face = self.core.of(self.svc);
-        face.end("Renew", row.0).map_err(|_| sour("server_error"))?;
-        self.grip(row.1, &row.2, "openid profile")
+        let ward = self.warrant(&token).ok_or_else(|| sour("invalid_grant"))?;
+        if grant.client.as_deref() != Some(&ward.slug) {
+            return Err(sour("invalid_grant"));
+        }
+        if !self.alive(ward.actor) || self.client(&ward.slug).is_none() {
+            return Err(sour("invalid_grant"));
+        }
+        self.core
+            .of(self.svc)
+            .end("Renew", ward.row)
+            .map_err(|_| sour("invalid_grant"))?;
+        self.grip(ward.actor, &ward.slug, &ward.scope)
     }
 
     fn grip(&self, actor: i64, client: &str, scope: &str) -> Grip {
@@ -201,7 +209,7 @@ impl<S: Store + 'static> Oidc<S> {
             .sign(&sub, &who, &self.iss, false)
             .map_err(|_| sour("server_error"))?;
         let fresh = wild();
-        self.mint(actor, client, &fresh)
+        self.mint(actor, client, scope, &fresh)
             .map_err(|_| sour("server_error"))?;
         Ok(Json(json!({
             "access_token": reach,
@@ -211,6 +219,17 @@ impl<S: Store + 'static> Oidc<S> {
             "expires_in": LIFE,
             "scope": scope,
         })))
+    }
+
+    fn alive(&self, actor: i64) -> bool {
+        let q = format!(r#"from Actor where id = "{actor}""#);
+        let Ok(pack) = self.core.of(self.svc).query(&q) else {
+            return false;
+        };
+        match pack.rows().first() {
+            Some(row) => row.cells().get("barred").map(Cell::show).as_deref() != Some("true"),
+            None => false,
+        }
     }
 
     fn look(&self, token: &str) -> Result<Json<Value>, StatusCode> {
@@ -243,7 +262,7 @@ impl<S: Store + 'static> Oidc<S> {
         pack.rows().first().cloned()
     }
 
-    fn warrant(&self, token: &str) -> Option<(i64, i64, String)> {
+    fn warrant(&self, token: &str) -> Option<Ward> {
         let q = format!(r#"from Renew where hash = "{}""#, seal(token));
         let pack = self.core.of(self.svc).query(&q).ok()?;
         let row = pack.rows().first()?;
@@ -251,17 +270,28 @@ impl<S: Store + 'static> Oidc<S> {
             Some(Cell::Int(key)) => *key,
             _ => return None,
         };
-        let slug = row.cells().get("slug").map(Cell::show)?;
-        Some((row.key(), actor, slug))
+        Some(Ward {
+            row: row.key(),
+            actor,
+            slug: row.cells().get("slug").map(Cell::show)?,
+            scope: row.cells().get("scope").map(Cell::show).unwrap_or_default(),
+        })
     }
 
-    fn mint(&self, actor: i64, client: &str, token: &str) -> Result<(), keel::adapt::Error> {
+    fn mint(
+        &self,
+        actor: i64,
+        client: &str,
+        scope: &str,
+        token: &str,
+    ) -> Result<(), keel::adapt::Error> {
         let face = self.core.of(self.svc);
         let row = face.put(
             "Renew",
             &[
                 ("hash", &seal(token)),
                 ("slug", client),
+                ("scope", scope),
                 ("actor", &actor.to_string()),
             ],
         )?;
@@ -377,6 +407,13 @@ async fn userinfo<S: Store + 'static>(
 struct Who {
     login: String,
     name: String,
+}
+
+struct Ward {
+    row: i64,
+    actor: i64,
+    slug: String,
+    scope: String,
 }
 
 #[derive(Serialize)]

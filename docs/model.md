@@ -22,10 +22,15 @@ become keel issues and registry releases, never local workarounds.
   `name` string, `slug` string unique, `home` url, `redirect` url,
   `secret` string (hash, empty for public PKCE clients), `mode`
   string (oidc | forward).
-- `Renew` — OIDC refresh grant. `hash` string unique, `slug` string
-  (the client), many2one root at Actor. Rotated on use; expiry rides
-  lease. The App tie is carried by slug, not an edge (refresh reads
-  it flat).
+- `Renew` — OIDC refresh grant. `hash` unique, `slug` (the bound
+  client), `scope` (the granted scope, never widened on refresh),
+  many2one root at Actor. Refresh binds to `slug`, checks the owner is
+  not barred and the client still exists, and rotates by ending the old
+  row (a live-row CAS: a replayed or raced token ends-dead and is
+  refused) before minting the next. Expiry rides lease. Residual
+  (documented, single-instance defer): full family reuse-revocation —
+  a token replayed after rotation is refused, but the rotated-ahead
+  descendant is not proactively revoked.
 - `Token` / `Session` — gate package units (bearer + cookie),
   rooted at Actor.
 - `@grant` — engine unit; all administration is six verbs on rows.
