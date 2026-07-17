@@ -160,6 +160,15 @@ impl<S: Store + 'static> Booth<S> {
         Some(hit.key())
     }
 
+    fn tag(&self, id: i64) -> Option<(String, String)> {
+        let q = format!(r#"from Actor where id = "{id}""#);
+        let pack = self.core.of(id).query(&q).ok()?;
+        let row = pack.rows().first()?;
+        let login = row.cells().get("login").map(Cell::show)?;
+        let name = row.cells().get("name").map(Cell::show).unwrap_or_default();
+        Some((login, name))
+    }
+
     fn session(&self, key: i64) -> Result<(StatusCode, HeaderMap, Json<Value>), StatusCode> {
         let sid = wild();
         let row = self
@@ -264,6 +273,7 @@ async fn serve<S: Store + 'static>(core: Arc<Core<S>>, cfg: &config::Config) {
         .route("/login", post(login::<S>))
         .route("/logout", post(logout::<S>))
         .route("/whoami", get(who::<S>))
+        .route("/auth", get(auth::<S>))
         .route("/mint", post(mint::<S>))
         .route("/revive", post(revive::<S>))
         .with_state(booth);
@@ -421,17 +431,23 @@ async fn who<S: Store + 'static>(
     let Some(Extension(Operator(me))) = op else {
         return Err(StatusCode::UNAUTHORIZED);
     };
-    let q = format!(r#"from Actor where id = "{me}""#);
-    let pack = booth
-        .core
-        .of(me)
-        .query(&q)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let row = pack.rows().first().ok_or(StatusCode::NOT_FOUND)?;
-    let cell = |name: &str| row.cells().get(name).map(Cell::show).unwrap_or_default();
-    Ok(Json(
-        json!({ "id": me, "login": cell("login"), "name": cell("name") }),
-    ))
+    let (login, name) = booth.tag(me).ok_or(StatusCode::NOT_FOUND)?;
+    Ok(Json(json!({ "id": me, "login": login, "name": name })))
+}
+
+async fn auth<S: Store + 'static>(
+    State(booth): State<Booth<S>>,
+    op: Option<Extension<Operator>>,
+) -> Result<(StatusCode, HeaderMap), StatusCode> {
+    let Some(Extension(Operator(me))) = op else {
+        return Err(StatusCode::UNAUTHORIZED);
+    };
+    let (login, _) = booth.tag(me).ok_or(StatusCode::UNAUTHORIZED)?;
+    let mut headers = HeaderMap::new();
+    let stamp = |value: &str| value.parse().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR);
+    headers.insert("x-ensign-user", stamp(&me.to_string())?);
+    headers.insert("x-ensign-login", stamp(&login)?);
+    Ok((StatusCode::OK, headers))
 }
 
 async fn mint<S: Store + 'static>(

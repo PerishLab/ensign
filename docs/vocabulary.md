@@ -40,3 +40,7 @@
   a refresh token.
 - `warrant` — a live Renew row found by token hash.
 - `Renew` — the refresh-token unit.
+- `auth` — the forward-auth probe: resolved operator → 200 + identity
+  headers (`x-ensign-user` / `x-ensign-login`); anonymous or barred →
+  401. traefik `forwardAuth` consumes it.
+- `tag` — id → (login, name), shared by `whoami` and `auth`.

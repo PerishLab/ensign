@@ -294,6 +294,38 @@ try {
     }
   });
 
+  io.print("==> act 4: forward-auth");
+  const rider = await enrol(crown, "rider");
+  await check("the probe stamps the identity", async () => {
+    const pass = await get("/auth", rider.head);
+    if (pass.status !== 200) {
+      throw new Error(`probe ${pass.status}`);
+    }
+    if (pass.headers.get("x-ensign-login") !== "rider") {
+      throw new Error(`no identity header`);
+    }
+    const anon = await get("/auth");
+    if (anon.status !== 401) {
+      throw new Error(`anon probe ${anon.status}`);
+    }
+  });
+
+  await check("a barred operator is turned away", async () => {
+    const patch = await fetch(`${base}/Actor/${rider.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", ...crown },
+      body: JSON.stringify({ barred: "true" }),
+    });
+    await patch.body?.cancel();
+    if (patch.status !== 200 && patch.status !== 204) {
+      throw new Error(`bar ${patch.status}`);
+    }
+    const shut = await get("/auth", rider.head);
+    if (shut.status !== 401) {
+      throw new Error(`barred probe ${shut.status}`);
+    }
+  });
+
   io.print("act: clean");
 } catch (err) {
   failed = true;
