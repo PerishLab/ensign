@@ -61,13 +61,17 @@ try {
 
   io.print("==> act 1: identity floor");
   await check("possession admits exactly once", async () => {
-    const seal = await digest("golden");
-    const card = await post("/invite", { hash: seal, note: "first" }, crown);
-    if (card.status !== 201) {
-      throw new Error(`invite ${card.status}`);
+    const seat = await post("/invite", { note: "first" }, crown);
+    const code = (seat.body as { code?: string }).code ?? "";
+    if (seat.status !== 201 || !code) {
+      throw new Error(`invite ${seat.status}`);
+    }
+    const open = await post("/invite", { note: "open" });
+    if (open.status !== 401 && open.status !== 403) {
+      throw new Error(`anon invite ${open.status}`);
     }
     const made = await post("/join", {
-      code: "golden",
+      code,
       login: "ada",
       name: "Ada",
       pass: "seaworthy",
@@ -76,7 +80,7 @@ try {
       throw new Error(`join ${made.status}`);
     }
     const again = await post("/join", {
-      code: "golden",
+      code,
       login: "bob",
       name: "Bob",
       pass: "drift",
@@ -326,6 +330,41 @@ try {
     }
   });
 
+  io.print("==> act 5: credential units are veiled");
+  const mallory = await enrol(crown, "mallory");
+  await check("no operator can author a credential on the wire", async () => {
+    const seal = await digest("forged");
+    const forged = await post("/Renew", {
+      hash: seal,
+      slug: "portal",
+      actor: String(mallory.id),
+    }, mallory.head);
+    if (forged.status !== 404) {
+      throw new Error(`Renew authorable on the wire ${forged.status}`);
+    }
+    const redeem = await form("/token", {
+      grant_type: "refresh_token",
+      refresh_token: "forged",
+    });
+    if (redeem.status === 200) {
+      throw new Error("forged refresh redeemed");
+    }
+    for (const unit of ["Pass", "Rescue", "Invite", "Session"]) {
+      const shut = await post(`/${unit}`, { hash: "x" }, mallory.head);
+      if (shut.status !== 404) {
+        throw new Error(`${unit} authorable on the wire ${shut.status}`);
+      }
+      const read = await get(`/${unit}`, mallory.head);
+      if (read.status !== 404) {
+        throw new Error(`${unit} readable on the wire ${read.status}`);
+      }
+    }
+    const query = await post("/query", { q: "from Pass" }, mallory.head);
+    if (query.status !== 404) {
+      throw new Error(`veiled unit queryable ${query.status}`);
+    }
+  });
+
   io.print("act: clean");
 } catch (err) {
   failed = true;
@@ -472,8 +511,8 @@ async function enrol(
   crown: Record<string, string>,
   login: string,
 ): Promise<Face> {
-  const code = `invite-${login}`;
-  await post("/invite", { hash: await digest(code), note: login }, crown);
+  const seat = await post("/invite", { note: login }, crown);
+  const code = (seat.body as { code: string }).code;
   const made = await post("/join", {
     code,
     login,

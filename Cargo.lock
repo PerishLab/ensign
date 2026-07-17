@@ -21,6 +21,7 @@ dependencies = [
  "argon2",
  "axum",
  "base64",
+ "getrandom 0.3.4",
  "jsonwebtoken",
  "keel",
  "keel-gate",
@@ -631,13 +632,25 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "899def5c37c4fd7b2664648c28120ecec138e4d395b459e5ca34f9cce2dd77fd"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "r-efi 5.3.0",
+ "wasip2",
+]
+
+[[package]]
+name = "getrandom"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "300e883d756b2e4ec94e02791f39b04b522276138852cfc41d9fb7e904106099"
 dependencies = [
  "cfg-if",
  "libc",
- "r-efi",
+ "r-efi 6.0.0",
  "rand_core 0.10.1",
 ]
 
@@ -858,9 +871,9 @@ dependencies = [
 
 [[package]]
 name = "keel"
-version = "0.1.12"
+version = "0.1.15"
 source = "sparse+https://git.perish.top/api/packages/PerishLab/cargo/"
-checksum = "e5985b7edf609e521b2f4f4a348503a98919c0c63739f79a20f14d45bc183a9d"
+checksum = "0d545ec7d64f177743a845afd7daf29cbc35f140ded01a2e9fcad816dd8335b9"
 dependencies = [
  "axum",
  "keel-macro",
@@ -875,11 +888,12 @@ dependencies = [
 
 [[package]]
 name = "keel-gate"
-version = "0.1.12"
+version = "0.1.15"
 source = "sparse+https://git.perish.top/api/packages/PerishLab/cargo/"
-checksum = "8c3f4a4d3e416ae3a8c14234a0f3c861e0cfc0d58ac21e1d0464112721296b45"
+checksum = "0c9ba9b9394686d654d38c1410b1b474383007f4b9f4c5a5f0fd24a565df1b36"
 dependencies = [
  "axum",
+ "getrandom 0.3.4",
  "keel",
  "serde_json",
  "sha2 0.10.9",
@@ -887,9 +901,9 @@ dependencies = [
 
 [[package]]
 name = "keel-macro"
-version = "0.1.12"
+version = "0.1.15"
 source = "sparse+https://git.perish.top/api/packages/PerishLab/cargo/"
-checksum = "a05ec71d0d948a2fee1311428f9bc243f175f93f97b191fe64456729b16e018a"
+checksum = "48f67f5312ab90273e1d132ebc68a7ff3653aebd11b75742235c8f987222fb19"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1354,6 +1368,12 @@ checksum = "dfbc457d0c7a0759a614551b11a6409e5951f6c7537be1f1b7682b9ae9230368"
 dependencies = [
  "proc-macro2",
 ]
+
+[[package]]
+name = "r-efi"
+version = "5.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
 
 [[package]]
 name = "r-efi"

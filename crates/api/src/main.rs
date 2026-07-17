@@ -32,7 +32,7 @@ struct Actor {
     barred: bool,
 }
 
-#[resource]
+#[resource(veil)]
 struct Pass {
     #[field(string)]
     hash: string,
@@ -40,7 +40,7 @@ struct Pass {
     actor: Actor,
 }
 
-#[resource]
+#[resource(veil)]
 struct Invite {
     #[field(string, unique)]
     hash: string,
@@ -48,7 +48,7 @@ struct Invite {
     note: string,
 }
 
-#[resource]
+#[resource(veil)]
 struct Rescue {
     #[field(string)]
     hash: string,
@@ -80,7 +80,7 @@ struct App {
     mode: string,
 }
 
-#[resource]
+#[resource(veil)]
 struct Renew {
     #[field(string, unique)]
     hash: string,
@@ -160,6 +160,19 @@ impl<S: Store + 'static> Booth<S> {
         Some(hit.key())
     }
 
+    fn face(&self, headers: &HeaderMap, op: Option<i64>) -> Option<keel::Face<'_, S>> {
+        let told = headers.get("authorization").and_then(|v| v.to_str().ok());
+        if let Some(token) = told.and_then(|v| v.strip_prefix("sudo ")) {
+            return self
+                .core
+                .seal(token)
+                .ok()
+                .filter(|ok| *ok)
+                .map(|_| self.core.sudo());
+        }
+        op.map(|id| self.core.of(id))
+    }
+
     fn tag(&self, id: i64) -> Option<(String, String)> {
         let q = format!(r#"from Actor where id = "{id}""#);
         let pack = self.core.of(id).query(&q).ok()?;
@@ -216,7 +229,7 @@ async fn main() {
                 fresh(&url);
             }
             let core = raise(bind(shape(), Postgres::at(url)), &cfg);
-            serve(core, &cfg).await;
+            serve(core, &cfg, &root).await;
         }
         Err(_) => {
             let store = match cfg.open() {
@@ -224,7 +237,7 @@ async fn main() {
                 Err(err) => halt("config", &err.to_string()),
             };
             let core = raise(bind(shape(), store), &cfg);
-            serve(core, &cfg).await;
+            serve(core, &cfg, &root).await;
         }
     }
 }
@@ -259,7 +272,7 @@ fn raise<S: Store + 'static>(
     }
 }
 
-async fn serve<S: Store + 'static>(core: Arc<Core<S>>, cfg: &config::Config) {
+async fn serve<S: Store + 'static>(core: Arc<Core<S>>, cfg: &config::Config, root: &str) {
     let (door, svc) = match rig(&core) {
         Ok(pair) => pair,
         Err(err) => halt("rise", &err.to_string()),
@@ -269,6 +282,7 @@ async fn serve<S: Store + 'static>(core: Arc<Core<S>>, cfg: &config::Config) {
         svc,
     };
     let plate = Router::new()
+        .route("/invite", post(invite::<S>))
         .route("/join", post(join::<S>))
         .route("/login", post(login::<S>))
         .route("/logout", post(logout::<S>))
@@ -278,7 +292,8 @@ async fn serve<S: Store + 'static>(core: Arc<Core<S>>, cfg: &config::Config) {
         .route("/revive", post(revive::<S>))
         .with_state(booth);
     let iss = format!("http://{}:{}", cfg.listen.host, cfg.listen.port);
-    let flags = oidc::Oidc::new(core.clone(), svc, iss).plate();
+    let vault = Path::new(root).join(".local").join("sign.pem");
+    let flags = oidc::Oidc::new(core.clone(), svc, iss, oidc::keys(&vault)).plate();
     let base = app(core.clone(), &cfg.listen.prefix)
         .merge(plate)
         .merge(flags);
@@ -362,6 +377,21 @@ fn seed<S: Store>(core: &Arc<Core<S>>, svc: i64) -> Result<(), keel::adapt::Erro
         )?;
     }
     Ok(())
+}
+
+async fn invite<S: Store + 'static>(
+    State(booth): State<Booth<S>>,
+    headers: HeaderMap,
+    op: Option<Extension<Operator>>,
+    Json(body): Json<Map<String, Value>>,
+) -> Result<(StatusCode, Json<Value>), StatusCode> {
+    let who = op.map(|Extension(Operator(id))| id);
+    let face = booth.face(&headers, who).ok_or(StatusCode::UNAUTHORIZED)?;
+    let note = body.get("note").and_then(Value::as_str).unwrap_or("");
+    let code = wild();
+    face.put("Invite", &[("hash", &digest(&code)), ("note", note)])
+        .map_err(|_| StatusCode::FORBIDDEN)?;
+    Ok((StatusCode::CREATED, Json(json!({ "code": code }))))
 }
 
 async fn join<S: Store + 'static>(
@@ -540,14 +570,9 @@ fn digest(code: &str) -> String {
 }
 
 fn wild() -> String {
-    use std::collections::hash_map::RandomState;
-    use std::hash::{BuildHasher, Hasher};
-    let mut out = String::new();
-    for _ in 0..4 {
-        let word = RandomState::new().build_hasher().finish();
-        out.push_str(&format!("{word:016x}"));
-    }
-    out
+    let mut seed = [0u8; 32];
+    getrandom::fill(&mut seed).expect("os entropy");
+    seed.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 fn now() -> i64 {

@@ -30,6 +30,24 @@ become keel issues and registry releases, never local workarounds.
   rooted at Actor.
 - `@grant` — engine unit; all administration is six verbs on rows.
 
+## Veil (credential units off the wire)
+
+`Pass`, `Rescue`, `Renew`, `Invite`, and gate's `Token`/`Session` are
+`#[resource(veil)]` (keel C-18): engine-governed, Face-written by
+ceremonies, but off the generic HTTP projection. No operator can author
+or read a credential row on the wire — closes the self-mint bypass.
+Issuance is a ceremony: `/invite` mints a server-CSPRNG code (never
+client-chosen); `/join` consumes it; `/revoke` (gate) ends a token.
+
+## Keys (signing material)
+
+The ES256 signing key is app-owned bytes, born once at genesis and
+persisted (`<root>/.local/sign.pem`), loaded thereafter — same
+possession model as the sudo token, and it survives restart (no more
+ephemeral-per-boot keys). `kid` derives from the public key. Bearer
+secrets everywhere draw 256 bits from the OS CSPRNG (`getrandom`),
+never a hash-table hasher.
+
 ## Not rows (protocol ephemera law)
 
 Authorization codes (60 s) and any future ceremony challenges are

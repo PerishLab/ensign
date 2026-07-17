@@ -44,3 +44,8 @@
   headers (`x-ensign-user` / `x-ensign-login`); anonymous or barred →
   401. traefik `forwardAuth` consumes it.
 - `tag` — id → (login, name), shared by `whoami` and `auth`.
+- `invite` — the issuance ceremony: mint a server-CSPRNG code, store
+  its hash, return the code once. `face` resolves sudo or operator.
+- `keys` / `born` / `shape` — load-or-mint the signing key; `born`
+  writes the genesis PEM; `shape` derives enc/dec/jwk/kid from a secret.
+- `wild` — 256-bit OS-CSPRNG bearer secret (`getrandom`).
