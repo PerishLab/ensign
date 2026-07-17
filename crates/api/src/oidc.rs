@@ -7,7 +7,7 @@ use axum::{Extension, Router};
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as B64;
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, encode};
-use keel::store::Store;
+use keel::Wire;
 use keel::{Cell, Core, Operator};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -97,15 +97,15 @@ struct Code {
     dies: i64,
 }
 
-pub struct Oidc<S: Store> {
-    core: Arc<Core<S>>,
+pub struct Oidc<W: Wire> {
+    core: Arc<Core<W>>,
     svc: i64,
     keys: Arc<Keys>,
     iss: String,
     codes: Arc<Mutex<HashMap<String, Code>>>,
 }
 
-impl<S: Store> Clone for Oidc<S> {
+impl<W: Wire> Clone for Oidc<W> {
     fn clone(&self) -> Self {
         Self {
             core: self.core.clone(),
@@ -117,8 +117,8 @@ impl<S: Store> Clone for Oidc<S> {
     }
 }
 
-impl<S: Store + 'static> Oidc<S> {
-    pub fn new(core: Arc<Core<S>>, svc: i64, iss: String, keys: Keys) -> Self {
+impl<W: Wire + 'static> Oidc<W> {
+    pub fn new(core: Arc<Core<W>>, svc: i64, iss: String, keys: Keys) -> Self {
         Self {
             core,
             svc,
@@ -130,20 +130,20 @@ impl<S: Store + 'static> Oidc<S> {
 
     pub fn plate(self) -> Router {
         Router::new()
-            .route("/.well-known/openid-configuration", get(disco::<S>))
-            .route("/.well-known/jwks.json", get(jwks::<S>))
-            .route("/authorize", get(authorize::<S>))
-            .route("/token", post(token::<S>))
-            .route("/userinfo", get(userinfo::<S>))
+            .route("/.well-known/openid-configuration", get(disco::<W>))
+            .route("/.well-known/jwks.json", get(jwks::<W>))
+            .route("/authorize", get(authorize::<W>))
+            .route("/token", post(token::<W>))
+            .route("/userinfo", get(userinfo::<W>))
             .with_state(self)
     }
 
-    fn open(&self, ask: Ask, actor: i64) -> Response {
+    async fn open(&self, ask: Ask, actor: i64) -> Response {
         let opens = ask.scope.split_whitespace().any(|word| word == "openid");
         if ask.kind != "code" || ask.method != "S256" || !opens {
             return StatusCode::BAD_REQUEST.into_response();
         }
-        let Some(app) = self.client(&ask.client) else {
+        let Some(app) = self.client(&ask.client).await else {
             return StatusCode::BAD_REQUEST.into_response();
         };
         if cell(&app, "redirect") != ask.redirect || cell(&app, "mode") != "oidc" {
@@ -174,7 +174,7 @@ impl<S: Store + 'static> Oidc<S> {
         Redirect::to(&back).into_response()
     }
 
-    fn trade(&self, grant: Grant) -> Grip {
+    async fn trade(&self, grant: Grant) -> Grip {
         let key = grant.code.ok_or_else(|| sour("invalid_request"))?;
         let held = self.codes.lock().expect("codes").remove(&key);
         let code = held.ok_or_else(|| sour("invalid_grant"))?;
@@ -191,26 +191,34 @@ impl<S: Store + 'static> Oidc<S> {
             return Err(sour("invalid_grant"));
         }
         self.grip(code.actor, &code.client, &code.scope, code.nonce)
+            .await
     }
 
-    fn renew(&self, grant: Grant) -> Grip {
+    async fn renew(&self, grant: Grant) -> Grip {
         let token = grant.renew.ok_or_else(|| sour("invalid_request"))?;
-        let ward = self.warrant(&token).ok_or_else(|| sour("invalid_grant"))?;
+        let ward = self
+            .warrant(&token)
+            .await
+            .ok_or_else(|| sour("invalid_grant"))?;
         if grant.client.as_deref() != Some(&ward.slug) {
             return Err(sour("invalid_grant"));
         }
-        if !self.alive(ward.actor) || self.client(&ward.slug).is_none() {
+        if !self.alive(ward.actor).await || self.client(&ward.slug).await.is_none() {
             return Err(sour("invalid_grant"));
         }
         self.core
             .of(self.svc)
             .end("Renew", ward.row)
+            .await
             .map_err(|_| sour("invalid_grant"))?;
-        self.grip(ward.actor, &ward.slug, &ward.scope, None)
+        self.grip(ward.actor, &ward.slug, &ward.scope, None).await
     }
 
-    fn grip(&self, actor: i64, client: &str, scope: &str, nonce: Option<String>) -> Grip {
-        let who = self.person(actor).ok_or_else(|| sour("server_error"))?;
+    async fn grip(&self, actor: i64, client: &str, scope: &str, nonce: Option<String>) -> Grip {
+        let who = self
+            .person(actor)
+            .await
+            .ok_or_else(|| sour("server_error"))?;
         let sub = actor.to_string();
         let wide = scope.split_whitespace().any(|word| word == "profile");
         let id = self
@@ -237,6 +245,7 @@ impl<S: Store + 'static> Oidc<S> {
             .map_err(|_| sour("server_error"))?;
         let fresh = wild();
         self.mint(actor, client, scope, &fresh)
+            .await
             .map_err(|_| sour("server_error"))?;
         Ok(Json(json!({
             "access_token": reach,
@@ -248,9 +257,9 @@ impl<S: Store + 'static> Oidc<S> {
         })))
     }
 
-    fn alive(&self, actor: i64) -> bool {
+    async fn alive(&self, actor: i64) -> bool {
         let q = format!(r#"from Actor where id = "{actor}""#);
-        let Ok(pack) = self.core.of(self.svc).query(&q) else {
+        let Ok(pack) = self.core.of(self.svc).query(&q).await else {
             return false;
         };
         match pack.rows().first() {
@@ -259,7 +268,7 @@ impl<S: Store + 'static> Oidc<S> {
         }
     }
 
-    fn look(&self, token: &str) -> Result<Json<Value>, StatusCode> {
+    async fn look(&self, token: &str) -> Result<Json<Value>, StatusCode> {
         let mut rule = Validation::new(Algorithm::ES256);
         rule.set_issuer(&[&self.iss]);
         rule.set_audience(&[&self.iss]);
@@ -271,7 +280,7 @@ impl<S: Store + 'static> Oidc<S> {
         }
         let sub = claims.get("sub").and_then(Value::as_str).unwrap_or("");
         let id: i64 = sub.parse().map_err(|_| StatusCode::UNAUTHORIZED)?;
-        let who = self.person(id).ok_or(StatusCode::NOT_FOUND)?;
+        let who = self.person(id).await.ok_or(StatusCode::NOT_FOUND)?;
         let wide = claims
             .get("scope")
             .and_then(Value::as_str)
@@ -286,9 +295,9 @@ impl<S: Store + 'static> Oidc<S> {
         Ok(Json(out))
     }
 
-    fn person(&self, id: i64) -> Option<Who> {
+    async fn person(&self, id: i64) -> Option<Who> {
         let q = format!(r#"from Actor where id = "{id}""#);
-        let pack = self.core.of(self.svc).query(&q).ok()?;
+        let pack = self.core.of(self.svc).query(&q).await.ok()?;
         let row = pack.rows().first()?;
         Some(Who {
             login: row.cells().get("login").map(Cell::show)?,
@@ -296,15 +305,15 @@ impl<S: Store + 'static> Oidc<S> {
         })
     }
 
-    fn client(&self, slug: &str) -> Option<keel::Row> {
+    async fn client(&self, slug: &str) -> Option<keel::Row> {
         let q = format!(r#"from App where slug = "{}""#, scrub(slug));
-        let pack = self.core.of(self.svc).query(&q).ok()?;
+        let pack = self.core.of(self.svc).query(&q).await.ok()?;
         pack.rows().first().cloned()
     }
 
-    fn warrant(&self, token: &str) -> Option<Ward> {
+    async fn warrant(&self, token: &str) -> Option<Ward> {
         let q = format!(r#"from Renew where hash = "{}""#, seal(token));
-        let pack = self.core.of(self.svc).query(&q).ok()?;
+        let pack = self.core.of(self.svc).query(&q).await.ok()?;
         let row = pack.rows().first()?;
         let actor = match row.cells().get("actor") {
             Some(Cell::Int(key)) => *key,
@@ -318,7 +327,7 @@ impl<S: Store + 'static> Oidc<S> {
         })
     }
 
-    fn mint(
+    async fn mint(
         &self,
         actor: i64,
         client: &str,
@@ -326,16 +335,18 @@ impl<S: Store + 'static> Oidc<S> {
         token: &str,
     ) -> Result<(), keel::adapt::Error> {
         let face = self.core.of(self.svc);
-        let row = face.put(
-            "Renew",
-            &[
-                ("hash", &seal(token)),
-                ("slug", client),
-                ("scope", scope),
-                ("actor", &actor.to_string()),
-            ],
-        )?;
-        face.lease("Renew", row, now() + RENEW)
+        let row = face
+            .put(
+                "Renew",
+                &[
+                    ("hash", &seal(token)),
+                    ("slug", client),
+                    ("scope", scope),
+                    ("actor", &actor.to_string()),
+                ],
+            )
+            .await?;
+        face.lease("Renew", row, now() + RENEW).await
     }
 
     fn sign(&self, ticket: &Ticket) -> Result<String, jsonwebtoken::errors::Error> {
@@ -367,7 +378,7 @@ struct Ticket<'a> {
     who: &'a Who,
 }
 
-async fn disco<S: Store>(State(oidc): State<Oidc<S>>) -> Json<Value> {
+async fn disco<W: Wire>(State(oidc): State<Oidc<W>>) -> Json<Value> {
     let iss = &oidc.iss;
     Json(json!({
         "issuer": iss,
@@ -385,7 +396,7 @@ async fn disco<S: Store>(State(oidc): State<Oidc<S>>) -> Json<Value> {
     }))
 }
 
-async fn jwks<S: Store>(State(oidc): State<Oidc<S>>) -> Json<Value> {
+async fn jwks<W: Wire>(State(oidc): State<Oidc<W>>) -> Json<Value> {
     Json(json!({ "keys": [oidc.keys.jwk] }))
 }
 
@@ -408,15 +419,15 @@ struct Ask {
     nonce: Option<String>,
 }
 
-async fn authorize<S: Store + 'static>(
-    State(oidc): State<Oidc<S>>,
+async fn authorize<W: Wire + 'static>(
+    State(oidc): State<Oidc<W>>,
     Query(ask): Query<Ask>,
     op: Option<Extension<Operator>>,
 ) -> Response {
     let Some(Extension(Operator(actor))) = op else {
         return StatusCode::UNAUTHORIZED.into_response();
     };
-    oidc.open(ask, actor)
+    oidc.open(ask, actor).await
 }
 
 #[derive(Deserialize)]
@@ -436,13 +447,13 @@ struct Grant {
 
 type Grip = Result<Json<Value>, (StatusCode, Json<Value>)>;
 
-async fn token<S: Store + 'static>(
-    State(oidc): State<Oidc<S>>,
+async fn token<W: Wire + 'static>(
+    State(oidc): State<Oidc<W>>,
     Form(grant): Form<Grant>,
 ) -> Response {
     let grip = match grant.kind.as_str() {
-        "authorization_code" => oidc.trade(grant),
-        "refresh_token" => oidc.renew(grant),
+        "authorization_code" => oidc.trade(grant).await,
+        "refresh_token" => oidc.renew(grant).await,
         _ => Err(sour("unsupported_grant_type")),
     };
     let mut out = match grip {
@@ -455,12 +466,12 @@ async fn token<S: Store + 'static>(
     out
 }
 
-async fn userinfo<S: Store + 'static>(
-    State(oidc): State<Oidc<S>>,
+async fn userinfo<W: Wire + 'static>(
+    State(oidc): State<Oidc<W>>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, StatusCode> {
     let token = bearer(&headers).ok_or(StatusCode::UNAUTHORIZED)?;
-    oidc.look(&token)
+    oidc.look(&token).await
 }
 
 struct Who {
