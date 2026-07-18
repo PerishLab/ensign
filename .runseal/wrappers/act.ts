@@ -674,6 +674,72 @@ try {
     }
   });
 
+  io.print("==> act 6: cli");
+  const exe = `${root}/target/debug/ensign`;
+  const nest = `${dir}/cli`;
+  const belt = { ENSIGN_URL: base, ENSIGN_HOME: nest };
+  const pilot = await enrol(crown, "pilot");
+  await grant(crown, { who: pilot.id, verb: "put", unit: "Invite", scope: "all" });
+  await grant(crown, { who: pilot.id, verb: "put", unit: "Team", scope: "all" });
+  await grant(crown, { who: pilot.id, verb: "put", unit: "App", scope: "all" });
+
+  await check("the cli signs in and rounds a full admin trip", async () => {
+    const login = await drive(exe, ["login", "pilot"], belt, "pass-pilot");
+    if (login.code !== 0) {
+      throw new Error(`cli login ${login.code}: ${login.err.trim()}`);
+    }
+    const who = await drive(exe, ["whoami"], belt);
+    if (who.code !== 0 || !who.out.includes("pilot")) {
+      throw new Error(`cli whoami ${who.code}: ${who.out.trim()}`);
+    }
+    const inv = await drive(exe, ["invite", "cli-made"], belt);
+    if (inv.code !== 0 || inv.out.trim().length < 32) {
+      throw new Error(`cli invite ${inv.code}: ${inv.out.trim()}`);
+    }
+    const team = await drive(exe, ["team", "flight"], belt);
+    if (team.code !== 0) {
+      throw new Error(`cli team ${team.err.trim()}`);
+    }
+    const app = await drive(
+      exe,
+      ["app", "Deck", "deck", "https://deck.lab", "https://deck.lab/cb"],
+      belt,
+    );
+    if (app.code !== 0) {
+      throw new Error(`cli app ${app.err.trim()}`);
+    }
+    const apps = await drive(exe, ["apps"], belt);
+    if (!apps.out.includes("deck")) {
+      throw new Error(`cli apps missing deck: ${apps.out.trim()}`);
+    }
+    const out = await drive(exe, ["logout"], belt);
+    if (out.code !== 0) {
+      throw new Error(`cli logout ${out.err.trim()}`);
+    }
+    const gone = await drive(exe, ["whoami"], belt);
+    if (gone.code === 0) {
+      throw new Error("cli whoami survived logout");
+    }
+  });
+
+  await check("a stranger cli is refused, not crashed", async () => {
+    const hand = await enrol(crown, "stow");
+    const login = await drive(exe, ["login", "stow"], belt, "pass-stow");
+    if (login.code !== 0) {
+      throw new Error(`cli login ${login.err.trim()}`);
+    }
+    const app = await drive(
+      exe,
+      ["app", "Sneak", "sneak", "https://x.lab", "https://x.lab/cb"],
+      belt,
+    );
+    if (app.code === 0 || !app.err.includes("refused")) {
+      throw new Error(`stranger app ${app.code}: ${app.err.trim()}`);
+    }
+    void hand;
+    await drive(exe, ["logout"], belt);
+  });
+
   io.print("act: clean");
 } catch (err) {
   failed = true;
@@ -846,6 +912,33 @@ async function enrol(
   const id = (made.body as { id: number }).id;
   const back = await post("/login", { login, pass: `pass-${login}` });
   return { id, head: { cookie: cookie(back) } };
+}
+
+async function drive(
+  exe: string,
+  args: string[],
+  belt: Record<string, string>,
+  feed?: string,
+): Promise<{ code: number; out: string; err: string }> {
+  const cmd = new Deno.Command(exe, {
+    args,
+    env: belt,
+    stdin: feed === undefined ? "null" : "piped",
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const child = cmd.spawn();
+  if (feed !== undefined) {
+    const writer = child.stdin.getWriter();
+    await writer.write(new TextEncoder().encode(feed));
+    await writer.close();
+  }
+  const done = await child.output();
+  return {
+    code: done.code,
+    out: new TextDecoder().decode(done.stdout),
+    err: new TextDecoder().decode(done.stderr),
+  };
 }
 
 async function grant(

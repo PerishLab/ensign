@@ -10,3 +10,7 @@ publish = false
 [[bin]]
 name = "ensign"
 path = "src/main.rs"
+
+[dependencies]
+serde_json = { workspace = true }
+ureq = { workspace = true }
