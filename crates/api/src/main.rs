@@ -149,23 +149,20 @@ impl<W: Wire + 'static> Booth<W> {
         pack.rows().first().map(keel::Row::key)
     }
 
-    async fn refloor(&self, key: i64) {
-        let face = self.core.of(self.svc);
-        for unit in ["Rescue", "Session"] {
-            let q = format!(r#"from {unit} where actor = "{key}""#);
-            if let Ok(pack) = face.query(&q).await {
-                for row in pack.rows() {
-                    let _ = face.end(unit, row.key()).await;
-                }
-            }
-        }
-    }
-
-    async fn shield(&self, key: i64) -> Option<String> {
-        let q = format!(r#"from Pass where actor = "{key}""#);
+    async fn barred(&self, key: i64) -> Option<bool> {
+        let q = format!(r#"from Actor where id = "{key}""#);
         let pack = self.core.of(self.svc).query(&q).await.ok()?;
         let row = pack.rows().first()?;
-        row.cells().get("hash").map(Cell::show)
+        Some(row.cells().get("barred").map(Cell::show) == Some("true".into()))
+    }
+
+    async fn guard(&self, key: i64) -> Result<Option<String>, keel::adapt::Error> {
+        let q = format!(r#"from Pass where actor = "{key}""#);
+        let pack = self.core.of(self.svc).query(&q).await?;
+        Ok(pack
+            .rows()
+            .first()
+            .and_then(|row| row.cells().get("hash").map(Cell::show)))
     }
 
     async fn spare(&self, key: i64, code: &str) -> Option<i64> {
@@ -191,6 +188,95 @@ impl<W: Wire + 'static> Booth<W> {
                 .map(|_| self.core.sudo());
         }
         op.map(|id| self.core.of(id))
+    }
+
+    async fn crews(&self, id: i64) -> Option<Vec<String>> {
+        let q = format!(r#"from Team where members has "{id}""#);
+        let pack = self.core.of(self.svc).query(&q).await.ok()?;
+        Some(
+            pack.rows()
+                .iter()
+                .filter_map(|row| row.cells().get("name").map(Cell::show))
+                .collect(),
+        )
+    }
+
+    async fn shield(&self, key: i64, hash: &str) -> Result<(), keel::adapt::Error> {
+        let hash = hash.to_string();
+        self.core
+            .of(key)
+            .batch(async |tx| {
+                let held = tx
+                    .query(&format!(r#"from Pass where actor = "{key}""#))
+                    .await?;
+                for row in held.rows() {
+                    tx.end("Pass", row.key()).await?;
+                }
+                tx.put("Pass", &[("hash", &hash), ("actor", &key.to_string())])
+                    .await?;
+                Ok(())
+            })
+            .await
+    }
+
+    async fn recover(&self, key: i64, hash: &str) -> Result<(), keel::adapt::Error> {
+        let hash = hash.to_string();
+        self.core
+            .batch(async |tx| {
+                let held = tx
+                    .query(&format!(r#"from Pass where actor = "{key}""#))
+                    .await?;
+                for row in held.rows() {
+                    tx.end("Pass", row.key()).await?;
+                }
+                tx.put("Pass", &[("hash", &hash), ("actor", &key.to_string())])
+                    .await?;
+                for unit in ["Rescue", "Session", "Renew"] {
+                    let live = tx
+                        .query(&format!(r#"from {unit} where actor = "{key}""#))
+                        .await?;
+                    for row in live.rows() {
+                        tx.end(unit, row.key()).await?;
+                    }
+                }
+                Ok(())
+            })
+            .await
+    }
+
+    async fn rearm(&self, hash: &str) {
+        let sudo = self.core.sudo();
+        let armed = sudo
+            .put("Invite", &[("hash", hash), ("note", "rearmed")])
+            .await;
+        if let Err(err) = armed {
+            eprintln!("ensign: join unwind lost the invite: {err}");
+        }
+    }
+
+    async fn unbirth(&self, key: i64) {
+        self.sweep(key).await;
+        let felled = self.core.sudo().end("Actor", key).await;
+        if let Err(err) = felled {
+            eprintln!("ensign: join unwind left actor {key}: {err}");
+        }
+    }
+
+    async fn sweep(&self, key: i64) {
+        let sudo = self.core.sudo();
+        let q = format!(r#"from @grant where who = "{key}""#);
+        let pack = match sudo.query(&q).await {
+            Ok(pack) => pack,
+            Err(err) => {
+                eprintln!("ensign: join unwind blind to grants: {err}");
+                return;
+            }
+        };
+        for row in pack.rows() {
+            if let Err(err) = sudo.end("@grant", row.key()).await {
+                eprintln!("ensign: join unwind left a grant: {err}");
+            }
+        }
     }
 
     async fn tag(&self, id: i64) -> Option<(String, String)> {
@@ -320,6 +406,7 @@ async fn serve<W: Wire + 'static>(core: Arc<Core<W>>, cfg: &config::Config, root
         .route("/whoami", get(who::<W>))
         .route("/auth", get(auth::<W>))
         .route("/mint", post(mint::<W>))
+        .route("/repass", post(repass::<W>))
         .route("/revive", post(revive::<W>))
         .with_state(booth);
     let vault = Path::new(root).join(".local").join("sign.pem");
@@ -441,30 +528,40 @@ async fn join<W: Wire + 'static>(
     let login = text(&body, "login")?;
     let name = text(&body, "name")?;
     let pass = text(&body, "pass")?;
-    if pass.len() < 8 {
+    if pass.chars().count() < 8 {
         return Err(StatusCode::BAD_REQUEST);
     }
     let card = booth.card(&code).await.ok_or(StatusCode::NOT_FOUND)?;
-    booth
-        .core
-        .of(booth.svc)
-        .end("Invite", card)
-        .await
-        .map_err(|_| StatusCode::NOT_FOUND)?;
-    let key = booth
-        .birth(&login, &name)
-        .await
-        .map_err(|_| StatusCode::CONFLICT)?;
+    if booth.actor(&login).await.is_some() {
+        return Err(StatusCode::CONFLICT);
+    }
     let hash = tokio::task::spawn_blocking(move || lock(&pass))
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    booth
+    let key = booth
+        .birth(&login, &name)
+        .await
+        .map_err(|_| StatusCode::CONFLICT)?;
+    if let Err(err) = booth.core.of(booth.svc).end("Invite", card).await {
+        booth.unbirth(key).await;
+        let gone = err.to_string().contains("missing row");
+        return Err(if gone {
+            StatusCode::NOT_FOUND
+        } else {
+            StatusCode::INTERNAL_SERVER_ERROR
+        });
+    }
+    let armed = booth
         .core
         .of(key)
         .put("Pass", &[("hash", &hash), ("actor", &key.to_string())])
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .await;
+    if armed.is_err() {
+        booth.unbirth(key).await;
+        booth.rearm(&digest(&code)).await;
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
     Ok((StatusCode::CREATED, Json(json!({ "id": key }))))
 }
 
@@ -475,14 +572,22 @@ async fn login<W: Wire + 'static>(
     let login = text(&body, "login")?;
     let pass = text(&body, "pass")?;
     let key = booth.actor(&login).await.ok_or(StatusCode::UNAUTHORIZED)?;
-    let hash = booth.shield(key).await.ok_or(StatusCode::UNAUTHORIZED)?;
+    let hash = match booth.guard(key).await {
+        Ok(Some(hash)) => hash,
+        Ok(None) => return Err(StatusCode::UNAUTHORIZED),
+        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+    };
     let fit = tokio::task::spawn_blocking(move || fits(&pass, &hash))
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     if !fit {
         return Err(StatusCode::UNAUTHORIZED);
     }
-    booth.session(key).await
+    match booth.barred(key).await {
+        Some(false) => booth.session(key).await,
+        Some(true) => Err(StatusCode::FORBIDDEN),
+        None => Err(StatusCode::INTERNAL_SERVER_ERROR),
+    }
 }
 
 async fn logout<W: Wire + 'static>(
@@ -526,10 +631,19 @@ async fn auth<W: Wire + 'static>(
         return Err(StatusCode::UNAUTHORIZED);
     };
     let (login, _) = booth.tag(me).await.ok_or(StatusCode::UNAUTHORIZED)?;
+    let teams = booth
+        .crews(me)
+        .await
+        .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?
+        .iter()
+        .map(|team| pct(team))
+        .collect::<Vec<_>>()
+        .join(",");
     let mut headers = HeaderMap::new();
     let stamp = |value: &str| value.parse().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR);
     headers.insert("x-ensign-user", stamp(&me.to_string())?);
     headers.insert("x-ensign-login", stamp(&login)?);
+    headers.insert("x-ensign-teams", stamp(&teams)?);
     Ok((StatusCode::OK, headers))
 }
 
@@ -565,25 +679,70 @@ async fn mint<W: Wire + 'static>(
     Ok((StatusCode::CREATED, Json(json!({ "codes": codes }))))
 }
 
+async fn repass<W: Wire + 'static>(
+    State(booth): State<Booth<W>>,
+    op: Option<Extension<Operator>>,
+    Json(body): Json<Map<String, Value>>,
+) -> Result<StatusCode, StatusCode> {
+    let Some(Extension(Operator(me))) = op else {
+        return Err(StatusCode::UNAUTHORIZED);
+    };
+    let old = text(&body, "old")?;
+    let pass = text(&body, "pass")?;
+    if pass.chars().count() < 8 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let held = match booth.guard(me).await {
+        Ok(Some(held)) => held,
+        Ok(None) => return Err(StatusCode::FORBIDDEN),
+        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+    };
+    let fit = tokio::task::spawn_blocking(move || fits(&old, &held))
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    if !fit {
+        return Err(StatusCode::FORBIDDEN);
+    }
+    let hash = tokio::task::spawn_blocking(move || lock(&pass))
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    booth
+        .shield(me, &hash)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
 async fn revive<W: Wire + 'static>(
     State(booth): State<Booth<W>>,
     Json(body): Json<Map<String, Value>>,
-) -> Result<(StatusCode, HeaderMap, Json<Value>), StatusCode> {
+) -> Result<StatusCode, StatusCode> {
     let login = text(&body, "login")?;
     let code = text(&body, "code")?;
+    let pass = text(&body, "pass")?;
+    if pass.chars().count() < 8 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
     let key = booth.actor(&login).await.ok_or(StatusCode::UNAUTHORIZED)?;
     let spare = booth
         .spare(key, &code)
         .await
         .ok_or(StatusCode::UNAUTHORIZED)?;
-    booth
-        .core
-        .of(booth.svc)
-        .end("Rescue", spare)
+    match booth.barred(key).await {
+        Some(false) => {}
+        Some(true) => return Err(StatusCode::FORBIDDEN),
+        None => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+    }
+    let _ = spare;
+    let hash = tokio::task::spawn_blocking(move || lock(&pass))
         .await
-        .map_err(|_| StatusCode::UNAUTHORIZED)?;
-    booth.refloor(key).await;
-    booth.session(key).await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    if booth.recover(key, &hash).await.is_err() {
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+    Ok(StatusCode::NO_CONTENT)
 }
 
 fn owner(row: &keel::Row) -> Option<i64> {
@@ -602,6 +761,18 @@ fn text(body: &Map<String, Value>, name: &str) -> Result<String, StatusCode> {
 
 fn scrub(value: &str) -> String {
     value.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+fn pct(text: &str) -> String {
+    let mut out = String::new();
+    for byte in text.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
+            out.push(byte as char);
+        } else {
+            out.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    out
 }
 
 fn crumb(headers: &HeaderMap) -> Option<String> {

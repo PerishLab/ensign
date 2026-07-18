@@ -1,0 +1,36 @@
+.line {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--room);
+	padding: var(--step) 0;
+	border-top: var(--line) solid var(--rule);
+}
+
+.line:first-child {
+	border-top: none;
+}
+
+.line-text {
+	display: flex;
+	align-items: baseline;
+	gap: var(--step);
+	min-width: 0;
+}
+
+.line-name {
+	color: var(--ink);
+	overflow-wrap: anywhere;
+}
+
+.line-meta {
+	color: var(--muted);
+	font-size: var(--fine);
+}
+
+.line-side {
+	display: flex;
+	align-items: center;
+	gap: var(--step);
+	flex-shrink: 0;
+}

@@ -148,6 +148,12 @@
 	initial-value: 0px;
 }
 
+@property --sheet {
+	syntax: "<length>";
+	inherits: true;
+	initial-value: 0px;
+}
+
 @property --card {
 	syntax: "<length>";
 	inherits: true;

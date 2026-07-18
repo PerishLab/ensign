@@ -1,8 +1,14 @@
+export { Bar } from "./Bar";
+export { Board } from "./Board";
 export { Button } from "./Button";
 export { Card } from "./Card";
+export { Code } from "./Code";
 export { Field } from "./Field";
 export { Frame } from "./Frame";
+export { Line } from "./Line";
 export { Link } from "./Link";
 export { Mark } from "./Mark";
 export { Note } from "./Note";
+export { Page } from "./Page";
 export { Split } from "./Split";
+export { Tag } from "./Tag";

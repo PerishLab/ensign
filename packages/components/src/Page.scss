@@ -1,0 +1,16 @@
+.page {
+	display: flex;
+	flex-direction: column;
+	gap: var(--span);
+	width: 100%;
+	max-width: var(--sheet);
+	margin: 0 auto;
+	padding: var(--rise) var(--span);
+}
+
+.page-title {
+	margin: 0;
+	color: var(--bright);
+	font-size: var(--title);
+	font-weight: var(--heft);
+}

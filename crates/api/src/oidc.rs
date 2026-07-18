@@ -1,5 +1,5 @@
 use axum::Json;
-use axum::extract::{Form, Query, State};
+use axum::extract::{Form, OriginalUri, Query, State};
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
@@ -291,6 +291,7 @@ impl<W: Wire + 'static> Oidc<W> {
         if wide {
             out["login"] = json!(who.login);
             out["name"] = json!(who.name);
+            out["teams"] = json!(who.teams);
         }
         Ok(Json(out))
     }
@@ -302,7 +303,19 @@ impl<W: Wire + 'static> Oidc<W> {
         Some(Who {
             login: row.cells().get("login").map(Cell::show)?,
             name: row.cells().get("name").map(Cell::show).unwrap_or_default(),
+            teams: self.crews(id).await?,
         })
+    }
+
+    async fn crews(&self, id: i64) -> Option<Vec<String>> {
+        let q = format!(r#"from Team where members has "{id}""#);
+        let pack = self.core.of(self.svc).query(&q).await.ok()?;
+        Some(
+            pack.rows()
+                .iter()
+                .filter_map(|row| row.cells().get("name").map(Cell::show))
+                .collect(),
+        )
     }
 
     async fn client(&self, slug: &str) -> Option<keel::Row> {
@@ -363,6 +376,7 @@ impl<W: Wire + 'static> Oidc<W> {
             nonce: ticket.nonce.clone(),
             login: ticket.wide.then(|| ticket.who.login.clone()),
             name: ticket.wide.then(|| ticket.who.name.clone()),
+            teams: ticket.wide.then(|| ticket.who.teams.clone()),
         };
         encode(&head, &claims, &self.keys.enc)
     }
@@ -421,11 +435,17 @@ struct Ask {
 
 async fn authorize<W: Wire + 'static>(
     State(oidc): State<Oidc<W>>,
+    OriginalUri(uri): OriginalUri,
     Query(ask): Query<Ask>,
     op: Option<Extension<Operator>>,
 ) -> Response {
     let Some(Extension(Operator(actor))) = op else {
-        return StatusCode::UNAUTHORIZED.into_response();
+        let seek = uri
+            .path_and_query()
+            .map(|part| part.as_str())
+            .unwrap_or("/authorize");
+        let back = format!("/login?return={}", pct(seek));
+        return Redirect::to(&back).into_response();
     };
     oidc.open(ask, actor).await
 }
@@ -477,6 +497,7 @@ async fn userinfo<W: Wire + 'static>(
 struct Who {
     login: String,
     name: String,
+    teams: Vec<String>,
 }
 
 struct Ward {
@@ -502,6 +523,8 @@ struct Claims {
     login: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    teams: Option<Vec<String>>,
 }
 
 fn scrub(value: &str) -> String {

@@ -1,0 +1,33 @@
+.bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--room);
+	padding: var(--room) var(--span);
+	background: var(--panel);
+	border-bottom: var(--line) solid var(--rule);
+}
+
+.bar-mark {
+	display: flex;
+	align-items: baseline;
+	gap: var(--step);
+	text-decoration: none;
+}
+
+.bar-flag {
+	color: var(--accent);
+	font-size: var(--lead);
+}
+
+.bar-name {
+	color: var(--bright);
+	font-size: var(--lead);
+	font-weight: var(--heft);
+}
+
+.bar-side {
+	display: flex;
+	align-items: center;
+	gap: var(--span);
+}

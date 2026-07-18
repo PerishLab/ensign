@@ -22,17 +22,18 @@ All four live in `packages/components/src`, the sole style territory.
   `calm`, spelled once each as a mixin; the `--seam` marker lets runtime
   ask which world it is in without learning the numbers.
 - `<Atom>.scss` — **consumes**. Sheets speak `var()` plus the enum
-  whitelist; seams only through the media mixins. No literals, no raw
-  `@media`, ever.
+  whitelist; seams only through the media mixins. No design literals
+  (hex, rem, ms), no raw `@media`, ever. Structural values (`0`,
+  `100%`, `100vh`, `auto`) are geometry, not design, and stay legal.
 
 ## The tokens
 
 | dimension | tokens | shape |
 | --- | --- | --- |
-| color | `ground` `panel` `well` `rule` `ink` `bright` `muted` `accent` `glow` | page, card, sunken input, hairline, body / heading / secondary text, one accent, its tint |
+| color | `ground` `panel` `well` `rule` `ink` `bright` `muted` `accent` `glow` `warn` `flush` | page, card, sunken input, hairline, body / heading / secondary text, one accent, its tint, the warning ink and its wash |
 | type | `fine` `body` `lead` `title` `hero` | fine print, prose, deck, section head, wordmark |
 | space | `gap` `step` `room` `span` `rise` | 0.25 / 0.5 / 1 / 1.5 / 2 rem — an 8px grid |
-| form | `radius` `bead` `line` `rim` `card` | corner, pill, hairline, focus ring, auth-card width |
+| form | `radius` `bead` `line` `rim` `card` `sheet` | corner, pill, hairline, focus ring, auth-card width, content-page width |
 | motion | `beat` | one transition |
 | number | `leading` `heft` | line height, medium weight |
 | depth | `lift` | one elevation shadow |

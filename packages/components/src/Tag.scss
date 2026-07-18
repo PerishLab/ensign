@@ -1,0 +1,17 @@
+.tag {
+	display: inline-block;
+	padding: 0 var(--step);
+	border-radius: var(--bead);
+	font-size: var(--fine);
+	font-weight: var(--heft);
+}
+
+.tag-calm {
+	background: var(--well);
+	color: var(--muted);
+}
+
+.tag-warn {
+	background: var(--flush);
+	color: var(--warn);
+}

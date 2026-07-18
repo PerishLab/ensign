@@ -8,6 +8,7 @@ import {
 	Split,
 } from "@ensign/components";
 import { useState } from "react";
+import { back, carry } from "../lib/path";
 import { enter } from "../lib/wire";
 
 export function Login() {
@@ -19,12 +20,18 @@ export function Login() {
 	async function submit() {
 		setBusy(true);
 		setWarn("");
-		const ok = await enter(login, pass);
+		const got = await enter(login, pass);
 		setBusy(false);
-		if (ok) {
+		if (got === "ok") {
 			globalThis.location.assign(back());
-		} else {
+			return;
+		}
+		if (got === "miss") {
 			setWarn("That login and password did not match.");
+		} else if (got === "barred") {
+			setWarn("This account is barred.");
+		} else {
+			setWarn("Something went wrong — try again.");
 		}
 	}
 
@@ -36,14 +43,9 @@ export function Login() {
 			{warn ? <Note text={warn} tone="warn" /> : null}
 			<Button label="Sign in" press={submit} wide busy={busy} />
 			<Split>
-				<Link label="Have an invite?" href="/join" />
-				<Link label="Lost your key?" href="/recover" />
+				<Link label="Have an invite?" href={`/join${carry()}`} />
+				<Link label="Lost your key?" href={`/recover${carry()}`} />
 			</Split>
 		</Card>
 	);
-}
-
-function back(): string {
-	const seek = new URLSearchParams(globalThis.location.search).get("return");
-	return seek?.startsWith("/") ? seek : "/portal";
 }

@@ -127,23 +127,42 @@ try {
     if (minted.status !== 201 || codes.length !== 3) {
       throw new Error(`mint ${minted.status}`);
     }
-    const back = await post("/revive", { login: "ada", code: codes[0] });
-    if (back.status !== 201) {
+    const back = await post("/revive", {
+      login: "ada",
+      code: codes[0],
+      pass: "refloor-anchor-8",
+    });
+    if (back.status !== 204) {
       throw new Error(`revive ${back.status}`);
     }
     const stale = await get("/whoami", { cookie: jar });
     if (stale.status !== 401) {
       throw new Error(`old session outlived recovery ${stale.status}`);
     }
-    const sibling = await post("/revive", { login: "ada", code: codes[1] });
-    if (sibling.status === 201) {
+    const sibling = await post("/revive", {
+      login: "ada",
+      code: codes[1],
+      pass: "refloor-anchor-8",
+    });
+    if (sibling.status === 204) {
       throw new Error("sibling rescue code survived re-floor");
     }
-    const spent = await post("/revive", { login: "ada", code: codes[0] });
+    const spent = await post("/revive", {
+      login: "ada",
+      code: codes[0],
+      pass: "refloor-anchor-8",
+    });
     if (spent.status !== 401) {
       throw new Error(`spent code ${spent.status}`);
     }
-    const relog = await post("/login", { login: "ada", pass: "seaworthy" });
+    const worn = await post("/login", { login: "ada", pass: "seaworthy" });
+    if (worn.status !== 401) {
+      throw new Error(`old password outlived recovery ${worn.status}`);
+    }
+    const relog = await post("/login", {
+      login: "ada",
+      pass: "refloor-anchor-8",
+    });
     jar = cookie(relog);
   });
 
@@ -155,6 +174,109 @@ try {
     const gone = await get("/whoami", { cookie: jar });
     if (gone.status !== 401) {
       throw new Error(`dead session ${gone.status}`);
+    }
+  });
+
+  await check("a taken login does not spend the invite", async () => {
+    const pass = "rope-ladder-9";
+    const card = await post("/invite", { note: "clash" }, crown);
+    const code = (card.body as { code: string }).code;
+    const held = await enrol(crown, "keeper");
+    void held;
+    const clash = await post("/join", {
+      code,
+      login: "keeper",
+      name: "Second Keeper",
+      pass,
+    });
+    if (clash.status !== 409) {
+      throw new Error(`clash ${clash.status}`);
+    }
+    const fresh = await post("/join", {
+      code,
+      login: "keeper2",
+      name: "Keeper Two",
+      pass,
+    });
+    if (fresh.status !== 201) {
+      throw new Error(`invite spent by the clash ${fresh.status}`);
+    }
+  });
+
+  await check("changing the password takes the current one", async () => {
+    const card = await post("/invite", { note: "gale" }, crown);
+    const code = (card.body as { code: string }).code;
+    await post("/join", {
+      code,
+      login: "galer",
+      name: "Galer",
+      pass: "first-anchor-8",
+    });
+    const held = await post("/login", { login: "galer", pass: "first-anchor-8" });
+    const sid = (held.headers.get("set-cookie") ?? "").split(";")[0];
+    const wrong = await fetch(`${base}/repass`, {
+      method: "POST",
+      headers: { cookie: sid, "content-type": "application/json" },
+      body: JSON.stringify({ old: "not-the-password", pass: "second-anchor-8" }),
+    });
+    await wrong.body?.cancel();
+    if (wrong.status !== 403) {
+      throw new Error(`repass without the current password ${wrong.status}`);
+    }
+    const right = await fetch(`${base}/repass`, {
+      method: "POST",
+      headers: { cookie: sid, "content-type": "application/json" },
+      body: JSON.stringify({ old: "first-anchor-8", pass: "second-anchor-8" }),
+    });
+    await right.body?.cancel();
+    if (right.status !== 204) {
+      throw new Error(`repass with the current password ${right.status}`);
+    }
+    const stale = await post("/login", { login: "galer", pass: "first-anchor-8" });
+    if (stale.status !== 401) {
+      throw new Error(`old password survived repass ${stale.status}`);
+    }
+    const fresh = await post("/login", { login: "galer", pass: "second-anchor-8" });
+    if (fresh.status !== 201) {
+      throw new Error(`new password refused ${fresh.status}`);
+    }
+  });
+
+  await check("recovery sets the new password atomically", async () => {
+    const card = await post("/invite", { note: "drift" }, crown);
+    const code = (card.body as { code: string }).code;
+    const joined = await post("/join", {
+      code,
+      login: "drifter",
+      name: "Drifter",
+      pass: "old-anchor-8",
+    });
+    if (joined.status !== 201) {
+      throw new Error(`join ${joined.status}`);
+    }
+    const held = await post("/login", { login: "drifter", pass: "old-anchor-8" });
+    const jar = held.headers.get("set-cookie") ?? "";
+    const sid = jar.split(";")[0];
+    const minted = await fetch(`${base}/mint`, {
+      method: "POST",
+      headers: { cookie: sid },
+    });
+    const codes = ((await minted.json()) as { codes: string[] }).codes;
+    const back = await post("/revive", {
+      login: "drifter",
+      code: codes[0],
+      pass: "new-harbor-9",
+    });
+    if (back.status !== 204) {
+      throw new Error(`revive ${back.status}`);
+    }
+    const stale = await post("/login", { login: "drifter", pass: "old-anchor-8" });
+    if (stale.status !== 401) {
+      throw new Error(`old password survived ${stale.status}`);
+    }
+    const fresh = await post("/login", { login: "drifter", pass: "new-harbor-9" });
+    if (fresh.status !== 201) {
+      throw new Error(`new password refused ${fresh.status}`);
     }
   });
 
@@ -317,6 +439,55 @@ try {
     }
   });
 
+  await check("anon authorize bounces to login with return", async () => {
+    const pk = await pkce();
+    const res = await walk({}, pk.challenge, "openid profile");
+    if (res.status !== 303) {
+      throw new Error(`anon authorize ${res.status}`);
+    }
+    const loc = res.headers.get("location") ?? "";
+    if (!loc.startsWith("/login?return=%2Fauthorize")) {
+      throw new Error(`bounce ${loc}`);
+    }
+  });
+
+  await check("tokens and the probe carry team claims", async () => {
+    const mate = await enrol(crown, "mate");
+    const deck = await post("/Team", { name: "deck" }, crown);
+    const hold = (deck.body as { id: number }).id;
+    const tie = await post(`/Team/${hold}/members`, { right: mate.id }, crown);
+    if (tie.status !== 201) {
+      throw new Error(`crew tie ${tie.status}`);
+    }
+    const pk = await pkce();
+    const code = await dance(mate.head, pk.challenge, "openid profile");
+    const grip = await form("/token", {
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: "http://127.0.0.1:9999/cb",
+      client_id: "portal",
+      code_verifier: pk.verifier,
+    });
+    const bag = grip.body as Record<string, string>;
+    const claims = await attest(bag.id_token) as unknown as {
+      teams?: string[];
+    };
+    if (!claims.teams?.includes("deck")) {
+      throw new Error(`id token teams ${JSON.stringify(claims.teams)}`);
+    }
+    const seen = await get("/userinfo", {
+      authorization: `Bearer ${bag.access_token}`,
+    });
+    const face = seen.body as { teams?: string[] };
+    if (!face.teams?.includes("deck")) {
+      throw new Error(`userinfo teams ${JSON.stringify(face.teams)}`);
+    }
+    const pass = await get("/auth", mate.head);
+    if (pass.headers.get("x-ensign-teams") !== "deck") {
+      throw new Error(`probe teams ${pass.headers.get("x-ensign-teams")}`);
+    }
+  });
+
   await check("refresh binds to its client and rotates", async () => {
     const loose = await form("/token", {
       grant_type: "refresh_token",
@@ -351,6 +522,41 @@ try {
     });
     if (stale.status === 200) {
       throw new Error("old refresh survived rotation");
+    }
+  });
+
+  await check("recovery revokes outstanding refresh grants", async () => {
+    const castaway = await enrol(crown, "castaway");
+    const pk = await pkce();
+    const code = await dance(castaway.head, pk.challenge, "openid profile");
+    const grip = await form("/token", {
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: "http://127.0.0.1:9999/cb",
+      client_id: "portal",
+      code_verifier: pk.verifier,
+    });
+    const token = (grip.body as { refresh_token: string }).refresh_token;
+    const minted = await fetch(`${base}/mint`, {
+      method: "POST",
+      headers: castaway.head,
+    });
+    const codes = ((await minted.json()) as { codes: string[] }).codes;
+    const back = await post("/revive", {
+      login: "castaway",
+      code: codes[0],
+      pass: "landfall-anchor-8",
+    });
+    if (back.status !== 204) {
+      throw new Error(`revive ${back.status}`);
+    }
+    const dead = await form("/token", {
+      grant_type: "refresh_token",
+      refresh_token: token,
+      client_id: "portal",
+    });
+    if (dead.status === 200) {
+      throw new Error("refresh grant outlived recovery");
     }
   });
 
@@ -426,6 +632,10 @@ try {
     const shut = await get("/auth", rider.head);
     if (shut.status !== 401) {
       throw new Error(`barred probe ${shut.status}`);
+    }
+    const door = await post("/login", { login: "rider", pass: "pass-rider" });
+    if (door.status !== 403) {
+      throw new Error(`barred login ${door.status}`);
     }
   });
 
