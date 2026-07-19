@@ -1,5 +1,24 @@
-image:
-  repository: git.perish.top/perishlab/ensign
+api:
+  image: git.perish.top/perishlab/ensign-api
   tag: "0.1.0"
-service:
+  replicas: 1
   port: 3500
+web:
+  image: git.perish.top/perishlab/ensign-web
+  tag: "0.1.0"
+  replicas: 1
+issuer: ""
+ingress:
+  enabled: true
+  className: ""
+  host: ensign.local
+postgres:
+  bundled: true
+  url: ""
+  image: postgres:17-alpine
+  user: ensign
+  password: ensign
+  db: ensign
+  storage: 1Gi
+vault:
+  storage: 128Mi

@@ -1,0 +1,12 @@
+ensign is installed.
+
+Retrieve the genesis sudo token (minted once, on first install):
+
+  kubectl get secret {{ .Release.Name }}-sudo -o jsonpath='{.data.token}' | base64 -d; echo
+
+Reach the web UI through the ingress host:
+
+  {{ if .Values.ingress.enabled }}http://{{ .Values.ingress.host }}/{{ else }}(ingress disabled — port-forward svc/{{ .Release.Name }}-web:80){{ end }}
+
+The sudo token is the one pre-identity axiom — use it once to seed your
+first admin grants, then rely on operator faces. It is not re-minted.

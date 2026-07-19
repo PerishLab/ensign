@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-store
+type: Opaque
+stringData:
+  KEEL_PG: {{ include "ensign.pgurl" . | quote }}

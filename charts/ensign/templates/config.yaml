@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-config
+data:
+  keel.toml: |
+    [listen]
+    host = "0.0.0.0"
+    port = {{ .Values.api.port }}
+    prefix = ""
+
+    [store]
+    kind = "memory"
+
+    [identity]
+    unit = "Actor"
+
+    [cache]
+    kind = "memory"

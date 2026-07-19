@@ -1,0 +1,13 @@
+[listen]
+host = "0.0.0.0"
+port = 3500
+prefix = ""
+
+[store]
+kind = "memory"
+
+[identity]
+unit = "Actor"
+
+[cache]
+kind = "memory"

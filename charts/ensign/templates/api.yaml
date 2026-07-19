@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-api
+spec:
+  replicas: {{ .Values.api.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-api
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-api
+    spec:
+      containers:
+        - name: api
+          image: "{{ .Values.api.image }}:{{ .Values.api.tag }}"
+          env:
+            - name: KEEL_PG
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-store
+                  key: KEEL_PG
+            {{- if .Values.issuer }}
+            - name: ENSIGN_ISS
+              value: {{ .Values.issuer | quote }}
+            {{- end }}
+          ports:
+            - containerPort: {{ .Values.api.port }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.api.port }}
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          volumeMounts:
+            - name: config
+              mountPath: /ensign/keel.toml
+              subPath: keel.toml
+            - name: vault
+              mountPath: /ensign/.local
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-config
+        - name: vault
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-vault
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-api
+spec:
+  selector:
+    app: {{ .Release.Name }}-api
+  ports:
+    - port: {{ .Values.api.port }}
+      targetPort: {{ .Values.api.port }}

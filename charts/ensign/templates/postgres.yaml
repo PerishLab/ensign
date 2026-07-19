@@ -1,0 +1,58 @@
+{{- if .Values.postgres.bundled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-pg
+spec:
+  serviceName: {{ .Release.Name }}-pg
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-pg
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-pg
+    spec:
+      containers:
+        - name: pg
+          image: {{ .Values.postgres.image | quote }}
+          env:
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.user | quote }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.postgres.password | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.db | quote }}
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ .Values.postgres.user | quote }}]
+            initialDelaySeconds: 3
+            periodSeconds: 3
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.postgres.storage | quote }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-pg
+spec:
+  selector:
+    app: {{ .Release.Name }}-pg
+  ports:
+    - port: 5432
+      targetPort: 5432
+{{- end }}

@@ -1,0 +1,33 @@
+name: ensign-deploy
+services:
+  pg:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ensign
+      POSTGRES_PASSWORD: ensign
+      POSTGRES_DB: ensign
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ensign"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+  api:
+    image: ensign-api:dev
+    environment:
+      KEEL_PG: "host=pg port=5432 user=ensign password=ensign dbname=ensign"
+      ENSIGN_ISS: "http://localhost:8890"
+    volumes:
+      - sign:/ensign/.local
+    depends_on:
+      pg:
+        condition: service_healthy
+  web:
+    image: ensign-web:dev
+    environment:
+      API_UPSTREAM: "api:3500"
+    ports:
+      - "8890:80"
+    depends_on:
+      - api
+volumes:
+  sign:
