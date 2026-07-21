@@ -11,11 +11,22 @@ web:
   image: git.perish.top/perishlab/ensign-web
   tag: "0.1.0"
   replicas: 1
+# Public https origin ensign issues tokens under. MUST be set for any real deploy:
+# unset means the api falls back to http://<listen.host>:<port>, and listen.host is
+# 0.0.0.0 here, so it would advertise an unreachable issuer. https also turns on the
+# Secure flag on session cookies.
 issuer: ""
 ingress:
   enabled: true
   className: ""
   host: ensign.local
+  # TLS is expressed two ways because clusters differ, and neither is baked in:
+  #   - annotations: for a cluster holding a default certificate, ask for TLS without
+  #     naming one (Traefik: traefik.ingress.kubernetes.io/router.tls: "true"); or point
+  #     cert-manager at an issuer (cert-manager.io/cluster-issuer: letsencrypt-prod).
+  #   - tls: the standard per-host form, e.g. [{secretName: ensign-tls, hosts: [...]}].
+  annotations: {}
+  tls: []
 postgres:
   bundled: true
   url: ""
