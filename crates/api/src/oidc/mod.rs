@@ -7,6 +7,7 @@ use flow::{authorize, disco, jwks, token, userinfo};
 
 pub(crate) use keys::{Keys, keys};
 
+use crate::util::Sound;
 use axum::Json;
 use axum::Router;
 use axum::http::StatusCode;
@@ -80,8 +81,10 @@ impl<W: Wire + 'static> Oidc<W> {
         if ask.kind != "code" || ask.method != "S256" || !opens {
             return StatusCode::BAD_REQUEST.into_response();
         }
-        let Some(app) = self.client(&ask.client).await else {
-            return StatusCode::BAD_REQUEST.into_response();
+        let app = match self.client(&ask.client).await {
+            Ok(Some(app)) => app,
+            Ok(None) => return StatusCode::BAD_REQUEST.into_response(),
+            Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
         };
         if cell(&app, "redirect") != ask.redirect || cell(&app, "mode") != "oidc" {
             return StatusCode::BAD_REQUEST.into_response();
@@ -111,14 +114,12 @@ impl<W: Wire + 'static> Oidc<W> {
         Redirect::to(&back).into_response()
     }
 
-    async fn alive(&self, actor: i64) -> bool {
+    async fn alive(&self, actor: i64) -> Result<bool, keel::adapt::Error> {
         let q = format!(r#"from Actor where id = "{actor}""#);
-        let Ok(pack) = self.core.of(self.svc).query(&q).await else {
-            return false;
-        };
+        let pack = self.core.of(self.svc).query(&q).await?;
         match pack.rows().first() {
-            Some(row) => row.cells().get("barred").map(Cell::show).as_deref() != Some("true"),
-            None => false,
+            Some(row) => Ok(row.cells().get("barred").map(Cell::show).as_deref() != Some("true")),
+            None => Ok(false),
         }
     }
 
@@ -134,7 +135,11 @@ impl<W: Wire + 'static> Oidc<W> {
         }
         let sub = claims.get("sub").and_then(Value::as_str).unwrap_or("");
         let id: i64 = sub.parse().map_err(|_| StatusCode::UNAUTHORIZED)?;
-        let who = self.person(id).await.ok_or(StatusCode::NOT_FOUND)?;
+        let who = self
+            .person(id)
+            .await
+            .sound()?
+            .ok_or(StatusCode::NOT_FOUND)?;
         let wide = claims
             .get("scope")
             .and_then(Value::as_str)
@@ -150,48 +155,56 @@ impl<W: Wire + 'static> Oidc<W> {
         Ok(Json(out))
     }
 
-    async fn person(&self, id: i64) -> Option<Who> {
+    async fn person(&self, id: i64) -> Result<Option<Who>, keel::adapt::Error> {
         let q = format!(r#"from Actor where id = "{id}""#);
-        let pack = self.core.of(self.svc).query(&q).await.ok()?;
-        let row = pack.rows().first()?;
-        Some(Who {
-            login: row.cells().get("login").map(Cell::show)?,
+        let pack = self.core.of(self.svc).query(&q).await?;
+        let Some(row) = pack.rows().first() else {
+            return Ok(None);
+        };
+        let Some(login) = row.cells().get("login").map(Cell::show) else {
+            return Ok(None);
+        };
+        Ok(Some(Who {
+            login,
             name: row.cells().get("name").map(Cell::show).unwrap_or_default(),
             teams: self.crews(id).await?,
-        })
+        }))
     }
 
-    async fn crews(&self, id: i64) -> Option<Vec<String>> {
+    async fn crews(&self, id: i64) -> Result<Vec<String>, keel::adapt::Error> {
         let q = format!(r#"from Team where members has "{id}""#);
-        let pack = self.core.of(self.svc).query(&q).await.ok()?;
-        Some(
-            pack.rows()
-                .iter()
-                .filter_map(|row| row.cells().get("name").map(Cell::show))
-                .collect(),
-        )
+        let pack = self.core.of(self.svc).query(&q).await?;
+        Ok(pack
+            .rows()
+            .iter()
+            .filter_map(|row| row.cells().get("name").map(Cell::show))
+            .collect())
     }
 
-    async fn client(&self, slug: &str) -> Option<keel::Row> {
+    async fn client(&self, slug: &str) -> Result<Option<keel::Row>, keel::adapt::Error> {
         let q = format!(r#"from App where slug = "{}""#, scrub(slug));
-        let pack = self.core.of(self.svc).query(&q).await.ok()?;
-        pack.rows().first().cloned()
+        let pack = self.core.of(self.svc).query(&q).await?;
+        Ok(pack.rows().first().cloned())
     }
 
-    async fn warrant(&self, token: &str) -> Option<Ward> {
+    async fn warrant(&self, token: &str) -> Result<Option<Ward>, keel::adapt::Error> {
         let q = format!(r#"from Renew where hash = "{}""#, seal(token));
-        let pack = self.core.of(self.svc).query(&q).await.ok()?;
-        let row = pack.rows().first()?;
-        let actor = match row.cells().get("actor") {
-            Some(Cell::Int(key)) => *key,
-            _ => return None,
+        let pack = self.core.of(self.svc).query(&q).await?;
+        let Some(row) = pack.rows().first() else {
+            return Ok(None);
         };
-        Some(Ward {
+        let Some(Cell::Int(actor)) = row.cells().get("actor") else {
+            return Ok(None);
+        };
+        let Some(slug) = row.cells().get("slug").map(Cell::show) else {
+            return Ok(None);
+        };
+        Ok(Some(Ward {
             row: row.key(),
-            actor,
-            slug: row.cells().get("slug").map(Cell::show)?,
+            actor: *actor,
+            slug,
             scope: row.cells().get("scope").map(Cell::show).unwrap_or_default(),
-        })
+        }))
     }
 }
 

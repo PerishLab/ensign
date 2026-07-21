@@ -51,6 +51,13 @@ pub(crate) fn sour(note: &str) -> (StatusCode, Json<Value>) {
     (StatusCode::BAD_REQUEST, Json(json!({ "error": note })))
 }
 
+pub(crate) fn spoil() -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(json!({ "error": "server_error" })),
+    )
+}
+
 pub(crate) fn wild() -> String {
     let mut seed = [0u8; 32];
     getrandom::fill(&mut seed).expect("os entropy");

@@ -1,4 +1,4 @@
-use crate::oidc::plain::{now, seal, sour, wild};
+use crate::oidc::plain::{now, seal, sour, spoil, wild};
 use crate::oidc::{Claims, Grant, Grip, LIFE, Oidc, RENEW, Ticket};
 use axum::Json;
 use jsonwebtoken::{Algorithm, Header, encode};
@@ -31,18 +31,21 @@ impl<W: Wire + 'static> Oidc<W> {
         let ward = self
             .warrant(&token)
             .await
+            .map_err(|_| spoil())?
             .ok_or_else(|| sour("invalid_grant"))?;
         if grant.client.as_deref() != Some(&ward.slug) {
             return Err(sour("invalid_grant"));
         }
-        if !self.alive(ward.actor).await || self.client(&ward.slug).await.is_none() {
+        let lives = self.alive(ward.actor).await.map_err(|_| spoil())?;
+        let known = self.client(&ward.slug).await.map_err(|_| spoil())?;
+        if !lives || known.is_none() {
             return Err(sour("invalid_grant"));
         }
         self.core
             .of(self.svc)
             .end("Renew", ward.row)
             .await
-            .map_err(|_| sour("invalid_grant"))?;
+            .map_err(|_| spoil())?;
         self.grip(ward.actor, &ward.slug, &ward.scope, None).await
     }
 
@@ -50,7 +53,8 @@ impl<W: Wire + 'static> Oidc<W> {
         let who = self
             .person(actor)
             .await
-            .ok_or_else(|| sour("server_error"))?;
+            .map_err(|_| spoil())?
+            .ok_or_else(spoil)?;
         let sub = actor.to_string();
         let wide = scope.split_whitespace().any(|word| word == "profile");
         let id = self
@@ -63,7 +67,7 @@ impl<W: Wire + 'static> Oidc<W> {
                 wide,
                 who: &who,
             })
-            .map_err(|_| sour("server_error"))?;
+            .map_err(|_| spoil())?;
         let reach = self
             .sign(&Ticket {
                 sub,
@@ -74,11 +78,11 @@ impl<W: Wire + 'static> Oidc<W> {
                 wide: false,
                 who: &who,
             })
-            .map_err(|_| sour("server_error"))?;
+            .map_err(|_| spoil())?;
         let fresh = wild();
         self.mint(actor, client, scope, &fresh)
             .await
-            .map_err(|_| sour("server_error"))?;
+            .map_err(|_| spoil())?;
         Ok(Json(json!({
             "access_token": reach,
             "id_token": id,

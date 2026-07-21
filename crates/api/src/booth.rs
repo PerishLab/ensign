@@ -1,4 +1,4 @@
-use crate::util::{digest, fits, now, scrub, wild};
+use crate::util::{Sound, digest, fits, now, scrub, wild};
 use axum::Json;
 use axum::http::{HeaderMap, StatusCode};
 use keel::{Cell, Core, Wire};
@@ -23,10 +23,10 @@ impl<W: Wire> Clone for Booth<W> {
 }
 
 impl<W: Wire + 'static> Booth<W> {
-    pub(crate) async fn card(&self, code: &str) -> Option<i64> {
+    pub(crate) async fn card(&self, code: &str) -> Result<Option<i64>, keel::adapt::Error> {
         let q = format!(r#"from Invite where hash = "{}""#, digest(code));
-        let pack = self.core.of(self.svc).query(&q).await.ok()?;
-        pack.rows().first().map(keel::Row::key)
+        let pack = self.core.of(self.svc).query(&q).await?;
+        Ok(pack.rows().first().map(keel::Row::key))
     }
 
     pub(crate) async fn birth(&self, login: &str, name: &str) -> Result<i64, keel::adapt::Error> {
@@ -55,21 +55,29 @@ impl<W: Wire + 'static> Booth<W> {
         Ok(key)
     }
 
-    pub(crate) async fn actor(&self, login: &str) -> Option<i64> {
+    pub(crate) async fn actor(&self, login: &str) -> Result<Option<i64>, keel::adapt::Error> {
         let q = format!(r#"from Actor where login = "{}""#, scrub(login));
-        let pack = self.core.of(self.svc).query(&q).await.ok()?;
-        pack.rows().first().map(keel::Row::key)
+        let pack = self.core.of(self.svc).query(&q).await?;
+        Ok(pack.rows().first().map(keel::Row::key))
     }
 
-    pub(crate) async fn barred(&self, key: i64) -> Option<bool> {
+    pub(crate) async fn barred(&self, key: i64) -> Result<Option<bool>, keel::adapt::Error> {
         let q = format!(r#"from Actor where id = "{key}""#);
-        let pack = self.core.of(self.svc).query(&q).await.ok()?;
-        let row = pack.rows().first()?;
-        Some(row.cells().get("barred").map(Cell::show) == Some("true".into()))
+        let pack = self.core.of(self.svc).query(&q).await?;
+        let Some(row) = pack.rows().first() else {
+            return Ok(None);
+        };
+        Ok(Some(
+            row.cells().get("barred").map(Cell::show) == Some("true".into()),
+        ))
     }
 
     pub(crate) async fn verify(&self, login: &str, pass: &str) -> Result<i64, StatusCode> {
-        let key = self.actor(login).await.ok_or(StatusCode::UNAUTHORIZED)?;
+        let key = self
+            .actor(login)
+            .await
+            .sound()?
+            .ok_or(StatusCode::UNAUTHORIZED)?;
         let held = match self.guard(key).await {
             Ok(Some(held)) => held,
             Ok(None) => return Err(StatusCode::UNAUTHORIZED),
@@ -83,9 +91,10 @@ impl<W: Wire + 'static> Booth<W> {
             return Err(StatusCode::UNAUTHORIZED);
         }
         match self.barred(key).await {
-            Some(false) => Ok(key),
-            Some(true) => Err(StatusCode::FORBIDDEN),
-            None => Err(StatusCode::INTERNAL_SERVER_ERROR),
+            Ok(Some(false)) => Ok(key),
+            Ok(Some(true)) => Err(StatusCode::FORBIDDEN),
+            Ok(None) => Err(StatusCode::UNAUTHORIZED),
+            Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
         }
     }
 
@@ -98,15 +107,19 @@ impl<W: Wire + 'static> Booth<W> {
             .and_then(|row| row.cells().get("hash").map(Cell::show)))
     }
 
-    pub(crate) async fn spare(&self, key: i64, code: &str) -> Option<i64> {
+    pub(crate) async fn spare(
+        &self,
+        key: i64,
+        code: &str,
+    ) -> Result<Option<i64>, keel::adapt::Error> {
         let q = format!(r#"from Rescue where actor = "{key}""#);
-        let pack = self.core.of(self.svc).query(&q).await.ok()?;
+        let pack = self.core.of(self.svc).query(&q).await?;
         let mark = digest(code);
-        let hit = pack
+        Ok(pack
             .rows()
             .iter()
-            .find(|row| row.cells().get("hash").map(Cell::show) == Some(mark.clone()))?;
-        Some(hit.key())
+            .find(|row| row.cells().get("hash").map(Cell::show) == Some(mark.clone()))
+            .map(keel::Row::key))
     }
 
     pub(crate) async fn face(
@@ -127,15 +140,14 @@ impl<W: Wire + 'static> Booth<W> {
         op.map(|id| self.core.of(id))
     }
 
-    pub(crate) async fn crews(&self, id: i64) -> Option<Vec<String>> {
+    pub(crate) async fn crews(&self, id: i64) -> Result<Vec<String>, keel::adapt::Error> {
         let q = format!(r#"from Team where members has "{id}""#);
-        let pack = self.core.of(self.svc).query(&q).await.ok()?;
-        Some(
-            pack.rows()
-                .iter()
-                .filter_map(|row| row.cells().get("name").map(Cell::show))
-                .collect(),
-        )
+        let pack = self.core.of(self.svc).query(&q).await?;
+        Ok(pack
+            .rows()
+            .iter()
+            .filter_map(|row| row.cells().get("name").map(Cell::show))
+            .collect())
     }
 
     pub(crate) async fn shield(&self, key: i64, hash: &str) -> Result<(), keel::adapt::Error> {
@@ -216,13 +228,20 @@ impl<W: Wire + 'static> Booth<W> {
         }
     }
 
-    pub(crate) async fn tag(&self, id: i64) -> Option<(String, String)> {
+    pub(crate) async fn tag(
+        &self,
+        id: i64,
+    ) -> Result<Option<(String, String)>, keel::adapt::Error> {
         let q = format!(r#"from Actor where id = "{id}""#);
-        let pack = self.core.of(id).query(&q).await.ok()?;
-        let row = pack.rows().first()?;
-        let login = row.cells().get("login").map(Cell::show)?;
+        let pack = self.core.of(id).query(&q).await?;
+        let Some(row) = pack.rows().first() else {
+            return Ok(None);
+        };
+        let Some(login) = row.cells().get("login").map(Cell::show) else {
+            return Ok(None);
+        };
         let name = row.cells().get("name").map(Cell::show).unwrap_or_default();
-        Some((login, name))
+        Ok(Some((login, name)))
     }
 
     pub(crate) async fn session(
@@ -238,11 +257,8 @@ impl<W: Wire + 'static> Booth<W> {
                 &[("hash", &digest(&sid)), ("actor", &key.to_string())],
             )
             .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        self.core
-            .lease("Session", row, now() + TTL)
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            .sound()?;
+        self.core.lease("Session", row, now() + TTL).await.sound()?;
         let mut headers = HeaderMap::new();
         let mut jar = format!("session={sid}; HttpOnly; SameSite=Lax; Path=/");
         if self.secure {

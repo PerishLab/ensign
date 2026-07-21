@@ -5,6 +5,16 @@ use axum::http::{HeaderMap, StatusCode};
 use keel::Cell;
 use serde_json::{Map, Value};
 
+pub(crate) trait Sound<T> {
+    fn sound(self) -> Result<T, StatusCode>;
+}
+
+impl<T> Sound<T> for Result<T, keel::adapt::Error> {
+    fn sound(self) -> Result<T, StatusCode> {
+        self.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+    }
+}
+
 pub(crate) fn owner(row: &keel::Row) -> Option<i64> {
     match row.cells().get("actor") {
         Some(Cell::Int(key)) => Some(*key),

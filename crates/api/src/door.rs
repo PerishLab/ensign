@@ -1,5 +1,5 @@
 use crate::booth::Booth;
-use crate::util::{crumb, digest, fits, lock, owner, pct, text, wearer, wild};
+use crate::util::{Sound, crumb, digest, fits, lock, owner, pct, text, wearer, wild};
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::{Extension, Json};
@@ -36,8 +36,13 @@ pub(crate) async fn join<W: Wire + 'static>(
     if pass.chars().count() < 8 {
         return Err(StatusCode::BAD_REQUEST);
     }
-    let card = booth.card(&code).await.ok_or(StatusCode::NOT_FOUND)?;
-    if booth.actor(&login).await.is_some() {
+    let card = booth
+        .card(&code)
+        .await
+        .sound()?
+        .ok_or(StatusCode::NOT_FOUND)?;
+    let taken = booth.actor(&login).await.sound()?;
+    if taken.is_some() {
         return Err(StatusCode::CONFLICT);
     }
     let hash = tokio::task::spawn_blocking(move || lock(&pass))
@@ -100,7 +105,7 @@ pub(crate) async fn token<W: Wire + 'static>(
             ],
         )
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .sound()?;
     Ok((StatusCode::CREATED, Json(json!({ "token": pat }))))
 }
 
@@ -110,20 +115,10 @@ pub(crate) async fn untoken<W: Wire + 'static>(
 ) -> Result<StatusCode, StatusCode> {
     let pat = wearer(&headers).ok_or(StatusCode::UNAUTHORIZED)?;
     let q = format!(r#"from Token where hash = "{}""#, digest(&pat));
-    let pack = booth
-        .core
-        .of(booth.svc)
-        .query(&q)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let pack = booth.core.of(booth.svc).query(&q).await.sound()?;
     let row = pack.rows().first().ok_or(StatusCode::NOT_FOUND)?;
     let key = owner(row).ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
-    booth
-        .core
-        .of(key)
-        .end("Token", row.key())
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    booth.core.of(key).end("Token", row.key()).await.sound()?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -134,18 +129,10 @@ pub(crate) async fn logout<W: Wire + 'static>(
     let sid = crumb(&headers).ok_or(StatusCode::BAD_REQUEST)?;
     let q = format!(r#"from Session where hash = "{}""#, digest(&sid));
     let face = booth.core.of(booth.svc);
-    let pack = face
-        .query(&q)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let pack = face.query(&q).await.sound()?;
     let row = pack.rows().first().ok_or(StatusCode::NOT_FOUND)?;
     let key = owner(row).ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
-    booth
-        .core
-        .of(key)
-        .end("Session", row.key())
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    booth.core.of(key).end("Session", row.key()).await.sound()?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -156,7 +143,7 @@ pub(crate) async fn who<W: Wire + 'static>(
     let Some(Extension(Operator(me))) = op else {
         return Err(StatusCode::UNAUTHORIZED);
     };
-    let (login, name) = booth.tag(me).await.ok_or(StatusCode::NOT_FOUND)?;
+    let (login, name) = booth.tag(me).await.sound()?.ok_or(StatusCode::NOT_FOUND)?;
     Ok(Json(json!({ "id": me, "login": login, "name": name })))
 }
 
@@ -167,11 +154,15 @@ pub(crate) async fn auth<W: Wire + 'static>(
     let Some(Extension(Operator(me))) = op else {
         return Err(StatusCode::UNAUTHORIZED);
     };
-    let (login, _) = booth.tag(me).await.ok_or(StatusCode::UNAUTHORIZED)?;
+    let (login, _) = booth
+        .tag(me)
+        .await
+        .sound()?
+        .ok_or(StatusCode::UNAUTHORIZED)?;
     let teams = booth
         .crews(me)
         .await
-        .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?
+        .sound()?
         .iter()
         .map(|team| pct(team))
         .collect::<Vec<_>>()
@@ -193,14 +184,9 @@ pub(crate) async fn mint<W: Wire + 'static>(
     };
     let face = booth.core.of(me);
     let q = format!(r#"from Rescue where actor = "{me}""#);
-    let pack = face
-        .query(&q)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let pack = face.query(&q).await.sound()?;
     for row in pack.rows() {
-        face.end("Rescue", row.key())
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        face.end("Rescue", row.key()).await.sound()?;
     }
     let mut codes = Vec::new();
     for _ in 0..3 {
@@ -210,7 +196,7 @@ pub(crate) async fn mint<W: Wire + 'static>(
             &[("hash", &digest(&code)), ("actor", &me.to_string())],
         )
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .sound()?;
         codes.push(code);
     }
     Ok((StatusCode::CREATED, Json(json!({ "codes": codes }))))
@@ -244,10 +230,7 @@ pub(crate) async fn repass<W: Wire + 'static>(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    booth
-        .shield(me, &hash)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    booth.shield(me, &hash).await.sound()?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -261,15 +244,21 @@ pub(crate) async fn revive<W: Wire + 'static>(
     if pass.chars().count() < 8 {
         return Err(StatusCode::BAD_REQUEST);
     }
-    let key = booth.actor(&login).await.ok_or(StatusCode::UNAUTHORIZED)?;
+    let key = booth
+        .actor(&login)
+        .await
+        .sound()?
+        .ok_or(StatusCode::UNAUTHORIZED)?;
     let spare = booth
         .spare(key, &code)
         .await
+        .sound()?
         .ok_or(StatusCode::UNAUTHORIZED)?;
     match booth.barred(key).await {
-        Some(false) => {}
-        Some(true) => return Err(StatusCode::FORBIDDEN),
-        None => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Ok(Some(false)) => {}
+        Ok(Some(true)) => return Err(StatusCode::FORBIDDEN),
+        Ok(None) => return Err(StatusCode::UNAUTHORIZED),
+        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
     let _ = spare;
     let hash = tokio::task::spawn_blocking(move || lock(&pass))
