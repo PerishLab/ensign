@@ -15,8 +15,8 @@ axum = "0.8"
 base64 = "0.22"
 getrandom = "0.3"
 jsonwebtoken = { version = "10", default-features = false, features = ["use_pem", "rust_crypto"] }
-keel = { version = "0.3.0", registry = "perish", features = ["pg"] }
-keel-gate = { version = "0.3.0", registry = "perish" }
+keel = { version = "0.4.0", registry = "perish", features = ["pg"] }
+keel-gate = { version = "0.4.0", registry = "perish" }
 p256 = { version = "0.14", features = ["ecdsa", "pkcs8", "pem", "getrandom"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

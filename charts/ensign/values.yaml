@@ -1,6 +1,10 @@
 api:
   image: git.perish.top/perishlab/ensign-api
   tag: "0.1.0"
+  # Keep at 1. keel caches grant rows per engine instance, so a second
+  # api pod keeps honouring a grant this one revoked until it writes.
+  # Raising this needs the keel cache off first — see keel docs/run/cache.md
+  # "Authority is cached too" (H-8).
   replicas: 1
   port: 3500
 web:
