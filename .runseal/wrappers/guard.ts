@@ -1,6 +1,5 @@
 import { bin } from "@/lib/std/cmd.ts";
 import { io } from "@/lib/std/io.ts";
-import { negentropy } from "@/lib/negentropy.ts";
 
 io.print("==> cargo fmt");
 await bin("cargo").run(["fmt", "--all", "--check"]);
@@ -65,7 +64,6 @@ await bin("deno").run([
 ]);
 
 io.print("==> negentropy");
-await negentropy.verify();
 await bin("negentropy").run(["--strict", "."]);
 
 io.print("==> act");
