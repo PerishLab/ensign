@@ -21,7 +21,6 @@
 		"typescript": "catalog:",
 		"vite": "catalog:",
 		"vitest": "catalog:",
-		"sass": "catalog:",
-		"@playwright/cli": "catalog:"
+		"sass": "catalog:"
 	}
 }

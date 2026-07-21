@@ -9,6 +9,7 @@ import {
 } from "@ensign/components";
 import { useState } from "react";
 import { back, carry } from "../lib/path";
+import { say } from "../lib/say";
 import { enter } from "../lib/wire";
 
 export function Login() {
@@ -26,13 +27,12 @@ export function Login() {
 			globalThis.location.assign(back());
 			return;
 		}
-		if (got === "miss") {
-			setWarn("That login and password did not match.");
-		} else if (got === "barred") {
-			setWarn("This account is barred.");
-		} else {
-			setWarn("Something went wrong — try again.");
-		}
+		setWarn(
+			say(got, {
+				miss: "That login and password did not match.",
+				barred: "This account is barred.",
+			}),
+		);
 	}
 
 	return (

@@ -9,6 +9,7 @@ import {
 } from "@ensign/components";
 import { useState } from "react";
 import { carry } from "../lib/path";
+import { say } from "../lib/say";
 import { enter, revive } from "../lib/wire";
 
 export function Recover() {
@@ -28,15 +29,13 @@ export function Recover() {
 			return;
 		}
 		setBusy(false);
-		if (got === "floor") {
-			setWarn("Passwords need at least 8 characters.");
-		} else if (got === "barred") {
-			setWarn("This account is barred.");
-		} else if (got === "miss") {
-			setWarn("That login and rescue code did not match.");
-		} else {
-			setWarn("Something went wrong — try again.");
-		}
+		setWarn(
+			say(got, {
+				floor: "Passwords need at least 8 characters.",
+				barred: "This account is barred.",
+				miss: "That login and rescue code did not match.",
+			}),
+		);
 	}
 
 	return (

@@ -5,17 +5,17 @@ use std::process::exit;
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let verb = args.first().map(String::as_str).unwrap_or("help");
-    let rest = &args[args.len().min(1)..];
+    let rest = Rest(&args[args.len().min(1)..]);
     let done = match verb {
-        "login" => login(rest),
+        "login" => rest.login(),
         "logout" => logout(),
         "whoami" => whoami(),
-        "invite" => invite(rest),
+        "invite" => rest.invite(),
         "actors" => list("Actor", &["login", "name", "kind"]),
         "teams" => list("Team", &["name"]),
-        "team" => team(rest),
+        "team" => rest.team(),
         "apps" => list("App", &["name", "slug", "mode"]),
-        "app" => app(rest),
+        "app" => rest.app(),
         _ => usage(),
     };
     if let Err(note) = done {
@@ -36,28 +36,6 @@ fn usage() -> Reply {
     eprintln!("  team <name>          found a team");
     eprintln!("  apps                 list apps");
     eprintln!("  app <name> <slug> <home> <redirect>   register an oidc app");
-    Ok(())
-}
-
-fn login(rest: &[String]) -> Reply {
-    let who = rest.first().ok_or("login takes a login name")?;
-    let base = base();
-    let pass = ask()?;
-    let (code, body) = call(
-        "POST",
-        &format!("{base}/bearer"),
-        None,
-        Some(json!({ "login": who, "pass": pass.trim(), "name": "cli" })),
-    )?;
-    if code != 201 {
-        return Err(fault("sign in", code));
-    }
-    let token = body
-        .get("token")
-        .and_then(Value::as_str)
-        .ok_or("no token in the reply")?;
-    save(&base, token)?;
-    println!("signed in to {base} as {who}");
     Ok(())
 }
 
@@ -85,22 +63,6 @@ fn whoami() -> Reply {
     Ok(())
 }
 
-fn invite(rest: &[String]) -> Reply {
-    let (base, token) = seat()?;
-    let note = rest.first().map(String::as_str).unwrap_or("");
-    let (code, body) = call(
-        "POST",
-        &format!("{base}/invite"),
-        Some(&token),
-        Some(json!({ "note": note })),
-    )?;
-    if code != 201 {
-        return Err(fault("open an invite", code));
-    }
-    println!("{}", field(&body, "code"));
-    Ok(())
-}
-
 fn list(unit: &str, cols: &[&str]) -> Reply {
     let (base, token) = seat()?;
     let (code, body) = call("GET", &format!("{base}/{unit}"), Some(&token), None)?;
@@ -115,45 +77,87 @@ fn list(unit: &str, cols: &[&str]) -> Reply {
     Ok(())
 }
 
-fn team(rest: &[String]) -> Reply {
-    let (base, token) = seat()?;
-    let name = rest.first().ok_or("team takes a name")?;
-    let (code, _) = call(
-        "POST",
-        &format!("{base}/Team"),
-        Some(&token),
-        Some(json!({ "name": name })),
-    )?;
-    if code != 201 {
-        return Err(fault("found a team", code));
-    }
-    println!("founded {name}");
-    Ok(())
-}
+struct Rest<'a>(&'a [String]);
 
-fn app(rest: &[String]) -> Reply {
-    let (base, token) = seat()?;
-    if rest.len() < 4 {
-        return Err("app takes <name> <slug> <home> <redirect>".into());
+impl Rest<'_> {
+    fn login(&self) -> Reply {
+        let who = self.0.first().ok_or("login takes a login name")?;
+        let base = base();
+        let pass = ask()?;
+        let (code, body) = call(
+            "POST",
+            &format!("{base}/bearer"),
+            None,
+            Some(json!({ "login": who, "pass": pass.trim(), "name": "cli" })),
+        )?;
+        if code != 201 {
+            return Err(fault("sign in", code));
+        }
+        let token = body
+            .get("token")
+            .and_then(Value::as_str)
+            .ok_or("no token in the reply")?;
+        save(&base, token)?;
+        println!("signed in to {base} as {who}");
+        Ok(())
     }
-    let (code, _) = call(
-        "POST",
-        &format!("{base}/App"),
-        Some(&token),
-        Some(json!({
-            "name": rest[0],
-            "slug": rest[1],
-            "home": rest[2],
-            "redirect": rest[3],
-            "secret": "",
-            "mode": "oidc",
-        })),
-    )?;
-    if code != 201 {
-        return Err(fault("register an app", code));
+
+    fn invite(&self) -> Reply {
+        let (base, token) = seat()?;
+        let note = self.0.first().map(String::as_str).unwrap_or("");
+        let (code, body) = call(
+            "POST",
+            &format!("{base}/invite"),
+            Some(&token),
+            Some(json!({ "note": note })),
+        )?;
+        if code != 201 {
+            return Err(fault("open an invite", code));
+        }
+        println!("{}", field(&body, "code"));
+        Ok(())
     }
-    println!("registered {}", rest[1]);
-    Ok(())
+
+    fn team(&self) -> Reply {
+        let (base, token) = seat()?;
+        let name = self.0.first().ok_or("team takes a name")?;
+        let (code, _) = call(
+            "POST",
+            &format!("{base}/Team"),
+            Some(&token),
+            Some(json!({ "name": name })),
+        )?;
+        if code != 201 {
+            return Err(fault("found a team", code));
+        }
+        println!("founded {name}");
+        Ok(())
+    }
+
+    fn app(&self) -> Reply {
+        let (base, token) = seat()?;
+        if self.0.len() < 4 {
+            return Err("app takes <name> <slug> <home> <redirect>".into());
+        }
+        let (code, _) = call(
+            "POST",
+            &format!("{base}/App"),
+            Some(&token),
+            Some(json!({
+                "name": self.0[0],
+                "slug": self.0[1],
+                "home": self.0[2],
+                "redirect": self.0[3],
+                "secret": "",
+                "mode": "oidc",
+            })),
+        )?;
+        if code != 201 {
+            return Err(fault("register an app", code));
+        }
+        println!("registered {}", self.0[1]);
+        Ok(())
+    }
 }
 
 type Reply = Result<(), String>;

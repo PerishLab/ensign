@@ -13,6 +13,7 @@ import {
 } from "@ensign/components";
 import { useEffect, useState } from "react";
 import { useHush } from "../lib/hush";
+import { say } from "../lib/say";
 import { crews, leave, mint, repass, whoami } from "../lib/wire";
 import { Down } from "./Down";
 
@@ -38,15 +39,13 @@ function Guard() {
 			return;
 		}
 		setTone("warn");
-		if (got === "floor") {
-			setNote("Passwords need at least 8 characters.");
-		} else if (got === "miss") {
-			setNote("That current password is wrong.");
-		} else if (got === "anon") {
-			setNote("Your session ended — sign in again.");
-		} else {
-			setNote("Something went wrong — try again.");
-		}
+		setNote(
+			say(got, {
+				floor: "Passwords need at least 8 characters.",
+				miss: "That current password is wrong.",
+				anon: "Your session ended — sign in again.",
+			}),
+		);
 	}
 
 	return (
@@ -87,12 +86,12 @@ export function Portal() {
 
 	useEffect(() => {
 		whoami().then(async (who) => {
-			if (who === "anon") {
-				globalThis.location.assign("/login?return=%2Fportal");
-				return;
-			}
 			if (who === "fail") {
 				setBroke(true);
+				return;
+			}
+			if (typeof who === "string") {
+				globalThis.location.assign("/login?return=%2Fportal");
 				return;
 			}
 			setMe(who);
@@ -110,13 +109,16 @@ export function Portal() {
 		setFault("");
 		const fresh = await mint();
 		setBusy(false);
-		if (fresh === "anon") {
-			setFault("Your session ended — sign in again.");
-		} else if (fresh === "fail") {
-			setFault("Minting failed — try again.");
-		} else {
+		if (Array.isArray(fresh)) {
 			setCodes(fresh);
+			return;
 		}
+		setFault(
+			say(fresh, {
+				anon: "Your session ended — sign in again.",
+				fail: "Minting failed — try again.",
+			}),
+		);
 	}
 
 	async function out() {

@@ -1,7 +1,7 @@
 import { Bar, Button, Link, Note, Page } from "@ensign/components";
 import { useEffect, useRef, useState } from "react";
 import { leave, rows, whoami } from "../lib/wire";
-import { Actors, Apps, Invites, Teams } from "./admin-boards";
+import { Actors, Apps, Invites, Teams } from "./boards";
 import { Down } from "./Down";
 
 type Row = { id: number } & Record<string, unknown>;
@@ -34,12 +34,12 @@ export function Admin() {
 
 	useEffect(() => {
 		whoami().then((who) => {
-			if (who === "anon") {
-				globalThis.location.assign("/login?return=%2Fadmin");
-				return;
-			}
 			if (who === "fail") {
 				setBroke(true);
+				return;
+			}
+			if (typeof who === "string") {
+				globalThis.location.assign("/login?return=%2Fadmin");
 				return;
 			}
 			setMe(who.id);

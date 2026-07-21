@@ -10,6 +10,7 @@ import {
 } from "@ensign/components";
 import { useState } from "react";
 import { useHush } from "../lib/hush";
+import { say } from "../lib/say";
 import { invite, put, set } from "../lib/wire";
 
 type Row = { id: number } & Record<string, unknown>;
@@ -27,16 +28,17 @@ export function Invites() {
 		setWarn("");
 		const fresh = await invite(note);
 		setBusy(false);
-		if (fresh.shut === "anon") {
-			setWarn("Your session ended — sign in again.");
-		} else if (fresh.shut === "denied") {
-			setWarn("Refused. Opening invites takes an invite grant.");
-		} else if (fresh.shut === "fail") {
-			setWarn("Something went wrong — try again.");
-		} else {
+		if (fresh.shut === "") {
 			setCode(fresh.code);
 			setNote("");
+			return;
 		}
+		setWarn(
+			say(fresh.shut, {
+				anon: "Your session ended — sign in again.",
+				denied: "Refused. Opening invites takes an invite grant.",
+			}),
+		);
 	}
 
 	return (
@@ -80,13 +82,14 @@ export function Actors(props: {
 		const got = await set("Actor", row.id, { barred: next });
 		if (got === "ok") {
 			await props.reload();
-		} else if (got === "anon") {
-			setWarn("Your session ended — sign in again.");
-		} else if (got === "denied") {
-			setWarn("Refused. Barring takes a set grant on Actor.");
-		} else {
-			setWarn("Something went wrong — try again.");
+			return;
 		}
+		setWarn(
+			say(got, {
+				anon: "Your session ended — sign in again.",
+				denied: "Refused. Barring takes a set grant on Actor.",
+			}),
+		);
 	}
 
 	if (props.actors === null) {
@@ -135,15 +138,15 @@ export function Teams(props: {
 		if (made === "ok") {
 			setName("");
 			await props.reload();
-		} else if (made === "clash") {
-			setWarn("That team name is taken.");
-		} else if (made === "anon") {
-			setWarn("Your session ended — sign in again.");
-		} else if (made === "denied") {
-			setWarn("Refused. Founding teams takes a put grant on Team.");
-		} else {
-			setWarn("Something went wrong — try again.");
+			return;
 		}
+		setWarn(
+			say(made, {
+				clash: "That team name is taken.",
+				anon: "Your session ended — sign in again.",
+				denied: "Refused. Founding teams takes a put grant on Team.",
+			}),
+		);
 	}
 
 	if (props.teams === null) {
@@ -196,15 +199,19 @@ export function Apps(props: {
 			setHome("");
 			setRedirect("");
 			await props.reload();
-		} else if (made === "clash") {
-			setWarn("That slug is taken.");
-		} else if (made === "anon") {
-			setWarn("Your session ended — sign in again.");
-		} else if (made === "denied") {
-			setWarn("Refused. Registering takes a put grant on App.");
-		} else {
-			setWarn("Invalid or failed — check the fields and try again.");
+			return;
 		}
+		setWarn(
+			say(
+				made,
+				{
+					clash: "That slug is taken.",
+					anon: "Your session ended — sign in again.",
+					denied: "Refused. Registering takes a put grant on App.",
+				},
+				"Invalid or failed — check the fields and try again.",
+			),
+		);
 	}
 
 	if (props.apps === null) {
