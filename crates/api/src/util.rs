@@ -62,7 +62,7 @@ pub(crate) fn crumb(headers: &HeaderMap) -> Option<String> {
         .map(str::to_string)
 }
 
-pub(crate) fn lock(pass: &str) -> Result<String, argon2::password_hash::Error> {
+pub fn lock(pass: &str) -> Result<String, argon2::password_hash::Error> {
     let salt = SaltString::generate(&mut OsRng);
     let hash = Argon2::default().hash_password(pass.as_bytes(), &salt)?;
     Ok(hash.to_string())

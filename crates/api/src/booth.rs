@@ -6,7 +6,7 @@ use keel_gate::TTL;
 use serde_json::{Value, json};
 use std::sync::Arc;
 
-pub(crate) struct Booth<W: Wire> {
+pub struct Booth<W: Wire> {
     pub(crate) core: Arc<Core<W>>,
     pub(crate) svc: i64,
     pub(crate) secure: bool,
@@ -23,13 +23,17 @@ impl<W: Wire> Clone for Booth<W> {
 }
 
 impl<W: Wire + 'static> Booth<W> {
+    pub fn new(core: Arc<Core<W>>, svc: i64, secure: bool) -> Self {
+        Self { core, svc, secure }
+    }
+
     pub(crate) async fn card(&self, code: &str) -> Result<Option<i64>, keel::adapt::Error> {
         let q = format!(r#"from Invite where hash = "{}""#, digest(code));
         let pack = self.core.of(self.svc).query(&q).await?;
         Ok(pack.rows().first().map(keel::Row::key))
     }
 
-    pub(crate) async fn birth(&self, login: &str, name: &str) -> Result<i64, keel::adapt::Error> {
+    pub async fn birth(&self, login: &str, name: &str) -> Result<i64, keel::adapt::Error> {
         let sudo = self.core.sudo();
         let key = sudo
             .put(
@@ -72,7 +76,7 @@ impl<W: Wire + 'static> Booth<W> {
         ))
     }
 
-    pub(crate) async fn verify(&self, login: &str, pass: &str) -> Result<i64, StatusCode> {
+    pub async fn verify(&self, login: &str, pass: &str) -> Result<i64, StatusCode> {
         let key = self
             .actor(login)
             .await
@@ -150,7 +154,7 @@ impl<W: Wire + 'static> Booth<W> {
             .collect())
     }
 
-    pub(crate) async fn shield(&self, key: i64, hash: &str) -> Result<(), keel::adapt::Error> {
+    pub async fn shield(&self, key: i64, hash: &str) -> Result<(), keel::adapt::Error> {
         let hash = hash.to_string();
         self.core
             .of(key)

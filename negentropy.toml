@@ -18,6 +18,7 @@ exclude = [
 [module]
 roots = [
   "crates/*/src",
+  "crates/*/tests",
   "apps/*/src",
   "apps/*/tests",
   "packages/*/src",
@@ -32,6 +33,7 @@ path = 4
 [[grant]]
 syntax = "test"
 paths = [
+  "crates/*/tests/**/*.rs",
   "apps/*/tests/**/*.test.ts",
   "apps/*/tests/**/*.test.tsx",
   "packages/*/tests/**/*.test.ts",
