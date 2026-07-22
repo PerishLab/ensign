@@ -1170,9 +1170,9 @@ dependencies = [
 
 [[package]]
 name = "keel"
-version = "0.4.1"
+version = "0.5.1"
 source = "sparse+https://git.perish.top/api/packages/PerishLab/cargo/"
-checksum = "8bd6216ea48d29d70df7762d87db416e36da1147bd64e94838f33a2f85a7e6cd"
+checksum = "fb04b3e2603907f9a1c7d0ac68960d82e476932ef15688443b09e1754e705970"
 dependencies = [
  "axum",
  "keel-macro",
@@ -1186,9 +1186,9 @@ dependencies = [
 
 [[package]]
 name = "keel-gate"
-version = "0.4.1"
+version = "0.5.1"
 source = "sparse+https://git.perish.top/api/packages/PerishLab/cargo/"
-checksum = "3d5bd6abf38b6cafcf6e2b1616fa8266cd37436af199fc044691b8321ddb0064"
+checksum = "aafdd20431495553ab6ff76bfc8663bc43462ba946ea44a7c17b887ab64ad9a1"
 dependencies = [
  "axum",
  "getrandom 0.3.4",
@@ -1199,9 +1199,9 @@ dependencies = [
 
 [[package]]
 name = "keel-macro"
-version = "0.4.1"
+version = "0.5.1"
 source = "sparse+https://git.perish.top/api/packages/PerishLab/cargo/"
-checksum = "d18e73d35a2727e7af6c5ff599cde47faa7fcf707fde9d6e1d6505239e579880"
+checksum = "d123b48d8326129931243e9fde854a976ea135c4f19b7e7e6596a30259d975f9"
 dependencies = [
  "proc-macro2",
  "quote",
