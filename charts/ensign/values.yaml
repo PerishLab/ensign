@@ -1,6 +1,7 @@
 api:
   image: git.perish.top/perishlab/ensign-api
-  tag: "0.1.0"
+  # tag defaults to Chart.appVersion; override only to pin a different image
+  tag: ""
   # Keep at 1. keel caches grant rows per engine instance, so a second
   # api pod keeps honouring a grant this one revoked until it writes.
   # Raising this needs the keel cache off first — see keel docs/run/cache.md
@@ -9,7 +10,7 @@ api:
   port: 3500
 web:
   image: git.perish.top/perishlab/ensign-web
-  tag: "0.1.0"
+  tag: ""
   replicas: 1
 # Public https origin ensign issues tokens under. MUST be set for any real deploy:
 # unset means the api falls back to http://<listen.host>:<port>, and listen.host is

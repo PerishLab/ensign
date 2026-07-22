@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: web
-          image: "{{ .Values.web.image }}:{{ .Values.web.tag }}"
+          image: "{{ .Values.web.image }}:{{ .Values.web.tag | default .Chart.AppVersion }}"
           env:
             - name: API_UPSTREAM
               value: "{{ .Release.Name }}-api:{{ .Values.api.port }}"
