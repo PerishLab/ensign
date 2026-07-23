@@ -1273,13 +1273,13 @@ dependencies = [
 
 [[package]]
 name = "keel"
-version = "0.5.2"
+version = "0.5.3"
 source = "sparse+https://git.perish.top/api/packages/PerishLab/cargo/"
-checksum = "332408ab93a82a94e75fc6ebf8054be21fc0c33bea5388075b6117405d31a0c4"
+checksum = "bdb26a52667108f31dc4338d07559743e87c3b35cc0736478b5b3abec0c5cfbe"
 dependencies = [
  "axum",
  "keel-macro",
- "plumb-lib",
+ "plumb",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -1648,10 +1648,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
-name = "plumb-lib"
-version = "0.2.0"
+name = "plumb"
+version = "0.1.0"
 source = "sparse+https://git.perish.top/api/packages/PerishLab/cargo/"
-checksum = "9a815ca9ef20917122b411bb2cffe2a047194693e8088de352f937ebd8dd1f82"
+checksum = "045dc376238eaf69ab15609529105823af0bdec41c90ba998744ad88ba9a3c4d"
 dependencies = [
  "clap",
  "serde",
