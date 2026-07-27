@@ -10,10 +10,12 @@
 	},
 	"dependencies": {
 		"@ensign/components": "workspace:*",
+		"@perish/react-components": "catalog:",
 		"react": "catalog:",
 		"react-dom": "catalog:"
 	},
 	"devDependencies": {
+		"@jsr/perish__vite-plugin-design": "catalog:",
 		"@types/node": "catalog:",
 		"@types/react": "catalog:",
 		"@types/react-dom": "catalog:",

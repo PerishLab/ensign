@@ -4,10 +4,13 @@ use clap::Parser;
 struct Cli {
     #[arg(default_value = ".")]
     root: String,
+    #[arg(long, hide = true)]
+    sidecar_stamp: Option<String>,
 }
 
 #[tokio::main]
 async fn main() {
-    let _root = Cli::parse().root;
-    api::sail().await;
+    let cli = Cli::parse();
+    let _stamp = cli.sidecar_stamp;
+    api::sail(&cli.root).await;
 }

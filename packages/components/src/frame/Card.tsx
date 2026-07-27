@@ -1,5 +1,5 @@
+import { Sheet } from "@perish/react-components";
 import type { ReactNode } from "react";
-import "./Card.scss";
 
 type Props = {
 	children: ReactNode;
@@ -8,7 +8,7 @@ type Props = {
 export function Card(props: Props) {
 	return (
 		<main className="card-page">
-			<section className="card">{props.children}</section>
+			<Sheet>{props.children}</Sheet>
 		</main>
 	);
 }

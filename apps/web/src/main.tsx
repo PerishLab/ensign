@@ -1,4 +1,4 @@
-import { Frame } from "@ensign/components";
+import { Shell } from "@perish/react-components";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { Admin } from "./views/Admin";
@@ -26,7 +26,7 @@ const root = document.getElementById("root");
 if (root !== null) {
 	createRoot(root).render(
 		<StrictMode>
-			<Frame>{view()}</Frame>
+			<Shell>{view()}</Shell>
 		</StrictMode>,
 	);
 }

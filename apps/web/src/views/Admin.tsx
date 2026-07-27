@@ -1,4 +1,5 @@
-import { Bar, Button, Link, Note, Page } from "@ensign/components";
+import { Bar } from "@ensign/components";
+import { Button, Link, Note, Page } from "@perish/react-components";
 import { useEffect, useRef, useState } from "react";
 import { leave, rows, whoami } from "../lib/wire";
 import { Actors, Apps, Invites, Teams } from "./boards";

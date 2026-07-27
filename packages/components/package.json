@@ -9,6 +9,7 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
+		"@perish/react-components": "catalog:",
 		"react": "catalog:"
 	},
 	"devDependencies": {

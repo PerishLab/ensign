@@ -1,5 +1,3 @@
-import "./Mark.scss";
-
 type Props = {
 	note?: string;
 };

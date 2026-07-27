@@ -1,9 +1,23 @@
+mod config;
+
+use clap::Parser;
 use serde_json::{Value, json};
 use std::io::{Read, Write};
 use std::process::exit;
 
+#[derive(Parser)]
+#[command(
+    disable_help_flag = true,
+    disable_version_flag = true,
+    trailing_var_arg = true
+)]
+struct Cli {
+    #[arg(allow_hyphen_values = true)]
+    args: Vec<String>,
+}
+
 fn main() {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    let args = Cli::parse().args;
     let verb = args.first().map(String::as_str).unwrap_or("help");
     let rest = Rest(&args[args.len().min(1)..]);
     let done = match verb {
@@ -82,7 +96,7 @@ struct Rest<'a>(&'a [String]);
 impl Rest<'_> {
     fn login(&self) -> Reply {
         let who = self.0.first().ok_or("login takes a login name")?;
-        let base = base();
+        let base = base()?;
         let pass = ask()?;
         let (code, body) = call(
             "POST",
@@ -197,8 +211,8 @@ fn call(verb: &str, url: &str, token: Option<&str>, body: Option<Value>) -> Resu
     Ok((code, read))
 }
 
-fn base() -> String {
-    std::env::var("ENSIGN_URL").unwrap_or_else(|_| "http://127.0.0.1:3500".into())
+fn base() -> Result<String, String> {
+    config::base()
 }
 
 fn seat() -> Result<(String, String), String> {
@@ -206,14 +220,7 @@ fn seat() -> Result<(String, String), String> {
 }
 
 fn home() -> Result<std::path::PathBuf, String> {
-    if let Ok(dir) = std::env::var("ENSIGN_HOME") {
-        return Ok(std::path::PathBuf::from(dir));
-    }
-    if let Ok(base) = std::env::var("XDG_CONFIG_HOME") {
-        return Ok(std::path::PathBuf::from(base).join("ensign"));
-    }
-    let base = std::env::var("HOME").map_err(|_| "no home to store the credential")?;
-    Ok(std::path::PathBuf::from(base).join(".config/ensign"))
+    config::home()
 }
 
 fn load() -> Option<(String, String)> {

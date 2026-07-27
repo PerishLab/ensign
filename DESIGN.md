@@ -7,24 +7,15 @@ classic Google shape as a base, extended. Light by default, one accent,
 generous space, a real type and spacing scale. It is the shared design
 language the fleet inherits.
 
-## The four organs
+## The shared substrate
 
-All four live in `packages/components/src`, the sole style territory.
+Generic tokens, themes, layout, fields, controls, and content come from
+`@perish/react-components`; Vite materializes every co-located stylesheet
+through `@perish/vite-plugin-design`.
 
-- `tokens.scss` — **defines** the vocabulary. One typed `@property` per
-  token; a var not registered here does not exist. Canary initials
-  (`magenta`, `0px`) make a theme that forgets a binding confess on
-  screen.
-- `themes/<theme>.scss` — **binds values**. `light` is the default
-  `:root`; `dark` overrides under `prefers-color-scheme: dark`. The only
-  files where a design literal (hex, rem, ms) may appear.
-- `media.scss` — **defines the seams**: `wide`/`narrow` at 40rem, `dark`,
-  `calm`, spelled once each as a mixin; the `--seam` marker lets runtime
-  ask which world it is in without learning the numbers.
-- `<Atom>.scss` — **consumes**. Sheets speak `var()` plus the enum
-  whitelist; seams only through the media mixins. No design literals
-  (hex, rem, ms), no raw `@media`, ever. Structural values (`0`,
-  `100%`, `100vh`, `auto`) are geometry, not design, and stay legal.
+Ensign keeps only three product compositions in `packages/components`: `Bar`,
+`Mark`, and `Card`. Their sheets may consume the shared token vocabulary but
+must not define a parallel foundation.
 
 ## The tokens
 
@@ -43,8 +34,8 @@ An unused token is a squatter and gets evicted.
 
 ## Territory
 
-Only `packages/components` declares style; `apps/web` consumes
-classNames and declares nothing. `Frame` is the shell: it loads tokens +
+Only the shared package and `packages/components` declare style; `apps/web`
+consumes components and declares nothing. Shared `Shell` loads tokens and
 themes and sets the page. Every view mounts inside it.
 
 ## The bar

@@ -1,0 +1,24 @@
+[project]
+name = "ensign"
+namespace = "ensign"
+root = "."
+
+[[sidecars]]
+name = "api"
+command = "cargo"
+args = ["run", "--locked", "-p", "api", "--", "."]
+cwd = "."
+mode = "dev"
+port = 0
+health_url = "http://127.0.0.1:{port}/health"
+ready = { role = "api" }
+
+[app]
+name = "web"
+command = "pnpm"
+args = ["--filter", "@ensign/web", "dev", "--"]
+cwd = "."
+mode = "dev"
+port = 0
+health_url = "http://127.0.0.1:{port}"
+inherits_env = [{ name = "ENSIGN_API", from = "api.endpoint" }]

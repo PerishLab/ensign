@@ -1,5 +1,5 @@
+import { Bar } from "@ensign/components";
 import {
-	Bar,
 	Board,
 	Button,
 	Code,
@@ -10,7 +10,7 @@ import {
 	Page,
 	Split,
 	Tag,
-} from "@ensign/components";
+} from "@perish/react-components";
 import { useEffect, useState } from "react";
 import { useHush } from "../lib/hush";
 import { say } from "../lib/say";
@@ -163,7 +163,7 @@ export function Portal() {
 								tone="warn"
 							/>
 							{codes.map((code) => (
-								<Code key={code} text={code} />
+								<Code key={code}>{code}</Code>
 							))}
 						</>
 					) : (

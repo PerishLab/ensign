@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import "./Bar.scss";
 
 type Props = {
 	children?: ReactNode;

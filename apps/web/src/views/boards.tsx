@@ -7,7 +7,7 @@ import {
 	Note,
 	Split,
 	Tag,
-} from "@ensign/components";
+} from "@perish/react-components";
 import { useState } from "react";
 import { useHush } from "../lib/hush";
 import { say } from "../lib/say";
@@ -61,7 +61,7 @@ export function Invites() {
 						text="Hand this code over now — it is shown only once."
 						tone="warn"
 					/>
-					<Code text={code} />
+					<Code>{code}</Code>
 				</>
 			) : null}
 			{warn ? <Note text={warn} tone="warn" /> : null}

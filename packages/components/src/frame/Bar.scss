@@ -2,8 +2,8 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: var(--room);
-	padding: var(--room) var(--span);
+	gap: var(--space-3);
+	padding: var(--space-3) var(--space-4);
 	background: var(--panel);
 	border-bottom: var(--line) solid var(--rule);
 }
@@ -11,7 +11,7 @@
 .bar-mark {
 	display: flex;
 	align-items: baseline;
-	gap: var(--step);
+	gap: var(--space-2);
 	text-decoration: none;
 }
 
@@ -29,5 +29,5 @@
 .bar-side {
 	display: flex;
 	align-items: center;
-	gap: var(--span);
+	gap: var(--space-4);
 }

@@ -1,4 +1,5 @@
 mod booth;
+mod config;
 mod door;
 mod model;
 mod oidc;
@@ -11,10 +12,9 @@ use axum::Router;
 use axum::routing::{get, post};
 use door::{auth, invite, join, login, logout, mint, repass, revive, token, untoken, who};
 use keel::adapt::pg::Postgres;
-use keel::{Core, Graph, Wire, app, bind, config};
+use keel::{Core, Graph, Wire, app, bind, config as keel_config};
 use keel_gate::Gate;
 use model::{Actor, App, Invite, Pass, Renew, Rescue, Team, plug};
-use std::env;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -32,12 +32,18 @@ pub fn shape() -> Graph {
     graph
 }
 
-pub async fn sail() {
-    let root = env::args().nth(1).unwrap_or_else(|| ".".into());
-    let cfg = config::load(Path::new(&root));
-    match env::var("KEEL_PG") {
-        Ok(url) => {
-            if env::var("KEEL_FRESH").is_ok() {
+pub async fn sail(root: &str) {
+    let runtime = match config::load() {
+        Ok(runtime) => runtime,
+        Err(err) => halt("config", &err),
+    };
+    let mut cfg = keel_config::load(Path::new(root));
+    if let Some(port) = runtime.port {
+        cfg.listen.port = port;
+    }
+    match runtime.pg {
+        Some(url) => {
+            if runtime.fresh {
                 fresh(&url).await;
             }
             let store = match Postgres::at(url).await {
@@ -45,15 +51,15 @@ pub async fn sail() {
                 Err(err) => halt("pg", &err.to_string()),
             };
             let core = raise(bind(shape(), store).await, &cfg);
-            serve(core, &cfg, &root).await;
+            serve(core, &cfg, root, runtime.issuer).await;
         }
-        Err(_) => {
+        None => {
             let store = match cfg.open().await {
                 Ok(store) => store,
                 Err(err) => halt("config", &err.to_string()),
             };
             let core = raise(bind(shape(), store).await, &cfg);
-            serve(core, &cfg, &root).await;
+            serve(core, &cfg, root, runtime.issuer).await;
         }
     }
 }
@@ -73,13 +79,13 @@ async fn fresh(url: &str) {
 
 fn raise<W: Wire + 'static>(
     made: Result<Core<W>, keel::adapt::Error>,
-    cfg: &config::Config,
+    cfg: &keel_config::Config,
 ) -> Arc<Core<W>> {
     let built = made
         .and_then(|core| core.identify("Actor"))
         .map(|core| match cfg.cache.kind {
-            config::Hold::Memory => core,
-            config::Hold::None => core.bare(),
+            keel_config::Hold::Memory => core,
+            keel_config::Hold::None => core.bare(),
         });
     match built {
         Ok(core) => core.share(),
@@ -87,13 +93,17 @@ fn raise<W: Wire + 'static>(
     }
 }
 
-async fn serve<W: Wire + 'static>(core: Arc<Core<W>>, cfg: &config::Config, root: &str) {
+async fn serve<W: Wire + 'static>(
+    core: Arc<Core<W>>,
+    cfg: &keel_config::Config,
+    root: &str,
+    issuer: Option<String>,
+) {
     let (door, svc) = match rig(&core).await {
         Ok(pair) => pair,
         Err(err) => halt("rise", &err.to_string()),
     };
-    let iss = env::var("ENSIGN_ISS")
-        .unwrap_or_else(|_| format!("http://{}:{}", cfg.listen.host, cfg.listen.port));
+    let iss = issuer.unwrap_or_else(|| format!("http://{}:{}", cfg.listen.host, cfg.listen.port));
     let booth = Booth::new(core.clone(), svc, iss.starts_with("https://"));
     let plate = Router::new()
         .route("/invite", post(invite::<W>))
@@ -118,7 +128,14 @@ async fn serve<W: Wire + 'static>(core: Arc<Core<W>>, cfg: &config::Config, root
         Ok(bound) => bound,
         Err(err) => halt("listen", &err.to_string()),
     };
-    eprintln!("ensign: ready on http://{addr}");
+    let live = match bound.local_addr() {
+        Ok(live) => live,
+        Err(err) => halt("listen", &err.to_string()),
+    };
+    eprintln!(
+        "{}",
+        serde_json::json!({ "role": "api", "endpoint": format!("http://{live}") })
+    );
     if let Err(err) = axum::serve(bound, router).await {
         halt("serve", &err.to_string());
     }
