@@ -24,11 +24,18 @@ services:
         condition: service_healthy
   web:
     image: ensign-web:dev
+  public:
+    image: nginx:1.27-alpine
     environment:
       API_UPSTREAM: "api:3500"
+      WEB_UPSTREAM: "web:8080"
+      NGINX_ENVSUBST_FILTER: "API_UPSTREAM|WEB_UPSTREAM"
+    volumes:
+      - ./public.conf.template:/etc/nginx/templates/default.conf.template:ro
     ports:
       - "8890:80"
     depends_on:
+      - web
       - api
 volumes:
   sign:

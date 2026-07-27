@@ -75,6 +75,7 @@ for (
     "biome.json",
     "apps/web/package.json",
     "packages/components/package.json",
+    "deploy/public.conf.template",
     "charts/ensign/Chart.yaml",
     ".runseal/deno.json",
     ".runseal/deno.lock",

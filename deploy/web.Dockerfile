@@ -7,9 +7,11 @@ COPY apps apps
 COPY packages packages
 RUN pnpm install --frozen-lockfile && pnpm -r build
 
-FROM nginx:1.27-alpine AS run
-ENV API_UPSTREAM=api:3500
-ENV NGINX_ENVSUBST_FILTER=API_UPSTREAM
-COPY deploy/web.conf.template /etc/nginx/templates/default.conf.template
-COPY --from=build /src/apps/web/dist /usr/share/nginx/html
-EXPOSE 80
+FROM node:24-alpine AS run
+WORKDIR /app
+ENV HOST=0.0.0.0
+ENV PORT=8080
+COPY --from=build /src/apps/web/dist ./dist
+USER node
+EXPOSE 8080
+CMD ["node", "dist/.perish/server.mjs", "dist"]
