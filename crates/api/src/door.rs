@@ -1,9 +1,10 @@
 use crate::booth::Booth;
-use crate::util::{Sound, crumb, digest, fits, lock, owner, pct, text, wearer, wild};
+use crate::util::{Sound, lock, pct, text};
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::{Extension, Json};
-use keel::{Operator, Wire};
+use keel::{Op, Operator, Wire, form};
+use keel_gate::{bearer, crumb, digest, wild};
 use serde_json::{Map, Value, json};
 
 pub(crate) async fn invite<W: Wire + 'static>(
@@ -49,30 +50,51 @@ pub(crate) async fn join<W: Wire + 'static>(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let key = booth
-        .birth(&login, &name)
-        .await
-        .map_err(|_| StatusCode::CONFLICT)?;
-    if let Err(err) = booth.core.of(booth.svc).end("Invite", card).await {
-        booth.unbirth(key).await;
-        let gone = err.to_string().contains("missing row");
-        return Err(if gone {
-            StatusCode::NOT_FOUND
-        } else {
-            StatusCode::INTERNAL_SERVER_ERROR
-        });
-    }
-    let armed = booth
+    let made = booth
         .core
-        .of(key)
-        .put("Pass", &[("hash", &hash), ("actor", &key.to_string())])
+        .sudo()
+        .batch(async |tx| {
+            tx.end("Invite", card).await?;
+            let key = tx
+                .put(
+                    "Actor",
+                    &[
+                        ("login", &login),
+                        ("name", &name),
+                        ("kind", "user"),
+                        ("barred", "false"),
+                    ],
+                )
+                .await?;
+            tx.put(
+                "@grant",
+                &[
+                    ("who", &key.to_string()),
+                    ("verb", "*"),
+                    ("unit", "Actor"),
+                    ("scope", &format!("row {key}")),
+                ],
+            )
+            .await?;
+            tx.put("Pass", &[("hash", &hash), ("actor", &key.to_string())])
+                .await?;
+            Ok(key)
+        })
         .await;
-    if armed.is_err() {
-        booth.unbirth(key).await;
-        booth.rearm(&digest(&code)).await;
-        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    match made {
+        Ok(key) => Ok((StatusCode::CREATED, Json(json!({ "id": key })))),
+        Err(err) => Err(gauge(&err.to_string())),
     }
-    Ok((StatusCode::CREATED, Json(json!({ "id": key }))))
+}
+
+fn gauge(note: &str) -> StatusCode {
+    if note.contains("missing row") {
+        return StatusCode::NOT_FOUND;
+    }
+    if note.contains("taken") {
+        return StatusCode::CONFLICT;
+    }
+    StatusCode::INTERNAL_SERVER_ERROR
 }
 
 pub(crate) async fn login<W: Wire + 'static>(
@@ -93,19 +115,7 @@ pub(crate) async fn token<W: Wire + 'static>(
     let pass = text(&body, "pass")?;
     let name = body.get("name").and_then(Value::as_str).unwrap_or("cli");
     let key = booth.verify(&login, &pass).await?;
-    let pat = wild();
-    booth
-        .core
-        .put(
-            "Token",
-            &[
-                ("name", name),
-                ("hash", &digest(&pat)),
-                ("actor", &key.to_string()),
-            ],
-        )
-        .await
-        .sound()?;
+    let pat = booth.gate.token(key, name).await.sound()?;
     Ok((StatusCode::CREATED, Json(json!({ "token": pat }))))
 }
 
@@ -113,13 +123,11 @@ pub(crate) async fn untoken<W: Wire + 'static>(
     State(booth): State<Booth<W>>,
     headers: HeaderMap,
 ) -> Result<StatusCode, StatusCode> {
-    let pat = wearer(&headers).ok_or(StatusCode::UNAUTHORIZED)?;
-    let q = format!(r#"from Token where hash = "{}""#, digest(&pat));
-    let pack = booth.core.of(booth.svc).query(&q).await.sound()?;
-    let row = pack.rows().first().ok_or(StatusCode::NOT_FOUND)?;
-    let key = owner(row).ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
-    booth.core.of(key).end("Token", row.key()).await.sound()?;
-    Ok(StatusCode::NO_CONTENT)
+    let pat = bearer(&headers).ok_or(StatusCode::UNAUTHORIZED)?;
+    match booth.gate.revoke(&pat).await {
+        Ok(()) => Ok(StatusCode::NO_CONTENT),
+        Err(deny) => Err(deny.status()),
+    }
 }
 
 pub(crate) async fn logout<W: Wire + 'static>(
@@ -127,13 +135,10 @@ pub(crate) async fn logout<W: Wire + 'static>(
     headers: HeaderMap,
 ) -> Result<StatusCode, StatusCode> {
     let sid = crumb(&headers).ok_or(StatusCode::BAD_REQUEST)?;
-    let q = format!(r#"from Session where hash = "{}""#, digest(&sid));
-    let face = booth.core.of(booth.svc);
-    let pack = face.query(&q).await.sound()?;
-    let row = pack.rows().first().ok_or(StatusCode::NOT_FOUND)?;
-    let key = owner(row).ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
-    booth.core.of(key).end("Session", row.key()).await.sound()?;
-    Ok(StatusCode::NO_CONTENT)
+    match booth.gate.logout(&sid).await {
+        Ok(()) => Ok(StatusCode::NO_CONTENT),
+        Err(deny) => Err(deny.status()),
+    }
 }
 
 pub(crate) async fn who<W: Wire + 'static>(
@@ -183,8 +188,8 @@ pub(crate) async fn mint<W: Wire + 'static>(
         return Err(StatusCode::UNAUTHORIZED);
     };
     let face = booth.core.of(me);
-    let q = format!(r#"from Rescue where actor = "{me}""#);
-    let pack = face.query(&q).await.sound()?;
+    let ask = form("Rescue").when("actor", Op::Eq, &me.to_string());
+    let pack = face.ask(&ask).await.sound()?;
     for row in pack.rows() {
         face.end("Rescue", row.key()).await.sound()?;
     }
@@ -220,7 +225,7 @@ pub(crate) async fn repass<W: Wire + 'static>(
         Ok(None) => return Err(StatusCode::FORBIDDEN),
         Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
     };
-    let fit = tokio::task::spawn_blocking(move || fits(&old, &held))
+    let fit = tokio::task::spawn_blocking(move || crate::util::fits(&old, &held))
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     if !fit {

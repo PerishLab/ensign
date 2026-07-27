@@ -1,8 +1,10 @@
-use crate::oidc::plain::{now, seal, sour, spoil, wild};
+use crate::oidc::plain::{seal, sour, spoil};
 use crate::oidc::{Claims, Grant, Grip, LIFE, Oidc, RENEW, Ticket};
 use axum::Json;
 use jsonwebtoken::{Algorithm, Header, encode};
 use keel::Wire;
+use keel::life::tick;
+use keel_gate::wild;
 use serde_json::json;
 
 impl<W: Wire + 'static> Oidc<W> {
@@ -10,7 +12,7 @@ impl<W: Wire + 'static> Oidc<W> {
         let key = grant.code.ok_or_else(|| sour("invalid_request"))?;
         let held = self.codes.lock().expect("codes").remove(&key);
         let code = held.ok_or_else(|| sour("invalid_grant"))?;
-        if code.dies < now() {
+        if code.dies < tick() {
             return Err(sour("invalid_grant"));
         }
         if grant.client.as_deref() != Some(&code.client)
@@ -112,7 +114,7 @@ impl<W: Wire + 'static> Oidc<W> {
                 ],
             )
             .await?;
-        face.lease("Renew", row, now() + RENEW).await
+        face.lease("Renew", row, tick() + RENEW).await
     }
 
     fn sign(&self, ticket: &Ticket) -> Result<String, jsonwebtoken::errors::Error> {
@@ -123,8 +125,8 @@ impl<W: Wire + 'static> Oidc<W> {
             sub: ticket.sub.clone(),
             aud: ticket.aud.clone(),
             kind: ticket.kind.to_string(),
-            exp: now() + LIFE,
-            iat: now(),
+            exp: tick() + LIFE,
+            iat: tick(),
             scope: (ticket.kind == "access").then(|| ticket.scope.clone()),
             nonce: ticket.nonce.clone(),
             login: ticket.wide.then(|| ticket.who.login.clone()),

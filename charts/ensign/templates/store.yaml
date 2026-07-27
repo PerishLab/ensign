@@ -4,4 +4,4 @@ metadata:
   name: {{ .Release.Name }}-store
 type: Opaque
 stringData:
-  KEEL_PG: {{ include "ensign.pgurl" . | quote }}
+  API_STORE_URL: {{ include "ensign.pgurl" . | quote }}

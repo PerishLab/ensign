@@ -14,8 +14,9 @@ services:
   api:
     image: ensign-api:dev
     environment:
-      KEEL_PG: "host=pg port=5432 user=ensign password=ensign dbname=ensign"
-      ENSIGN_ISS: "http://localhost:8890"
+      API_STORE_KIND: "pg"
+      API_STORE_URL: "host=pg port=5432 user=ensign password=ensign dbname=ensign"
+      API_ISS: "http://localhost:8890"
     volumes:
       - sign:/ensign/.local
     depends_on:

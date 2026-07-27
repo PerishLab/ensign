@@ -33,14 +33,20 @@ planes: cargo fmt/clippy/test, biome/tsc/vitest, helm lint, negentropy
 - OIDC (code + PKCE) and forward-auth are the two provider faces.
 - No SAML / LDAP / RADIUS / SCIM / flow engine / expression policies /
   upstream federation — permanent cuts.
-- Capability ledger: `keel:.task/resources/ensign.md` (E-seats).
+- Capability needs ride keel's gate primitives (`keel:docs/run/capability.md`
+  § Gate); engine gaps become keel issues, not a local ledger.
 
 ## Laws
 
 - Negentropy laws apply (single word, block/path <= 4, no comments);
   vocabulary deltas in `docs/vocabulary.md`.
-- Dependency direction: ensign -> keel-gate -> keel. Never a workspace
-  sibling of keel; distribution follows keel's channel.
+- Dependency direction: ensign -> keel-gate -> keel, plus plumb for the
+  config mechanism only (never its vocabulary). Never a workspace sibling
+  of keel; distribution follows keel's channel.
+- Runtime env rides the cascade under the binary's own `API_` prefix
+  (`API_STORE_KIND` / `API_STORE_URL` / `API_STORE_PATH` / `API_FRESH` /
+  `API_ISS`); the port override is keel's `KEEL_LISTEN_PORT`, translated
+  from `SIDECAR_PORT` in `sidecar.toml`, never read in product code.
 - Engine gaps become keel issues and registry releases, never local
   workarounds; architecture conflicts halt the thread and get raised.
 - Never commit on `main`; branch, then `runseal :guard` and

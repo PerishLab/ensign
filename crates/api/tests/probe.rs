@@ -60,10 +60,17 @@ async fn rig() -> (Booth<Faint>, Arc<AtomicBool>) {
         .identify("Actor")
         .expect("identify")
         .share();
-    let svc = api::hail(&core).await.expect("svc");
-    api::seed(&core, svc).await.expect("seed");
-    let booth = Booth::new(core, svc, false);
-    let key = booth.birth("ada", "Ada").await.expect("ada");
+    let (gate, svc) = api::rig(&core).await.expect("rig");
+    let booth = Booth::new(core, gate.clone(), svc, false);
+    let key = gate
+        .birth(&[
+            ("login", "ada"),
+            ("name", "Ada"),
+            ("kind", "user"),
+            ("barred", "false"),
+        ])
+        .await
+        .expect("ada");
     let hash = lock("seaworthy").expect("hash");
     booth.shield(key, &hash).await.expect("pass");
     (booth, live)

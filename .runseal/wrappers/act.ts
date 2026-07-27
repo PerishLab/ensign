@@ -32,8 +32,10 @@ io.print("==> build api");
 await bin("cargo").run(["build", "--locked"], { cwd: root });
 
 io.print(`==> boot api on ${base}`);
-const pg = Deno.env.get("KEEL_PG");
-const env: Record<string, string> = pg ? { KEEL_PG: pg, KEEL_FRESH: "1" } : {};
+const pg = Deno.env.get("API_STORE_URL");
+const env: Record<string, string> = pg
+  ? { API_STORE_KIND: "pg", API_STORE_URL: pg, API_FRESH: "1" }
+  : {};
 if (pg) {
   io.print("==> store: postgres");
 }

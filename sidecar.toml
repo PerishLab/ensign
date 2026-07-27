@@ -5,8 +5,11 @@ root = "."
 
 [[sidecars]]
 name = "api"
-command = "cargo"
-args = ["run", "--locked", "-p", "api", "--", "."]
+command = "sh"
+args = [
+  "-c",
+  "KEEL_LISTEN_PORT=$SIDECAR_PORT exec cargo run --locked -p api -- .",
+]
 cwd = "."
 mode = "dev"
 port = 0

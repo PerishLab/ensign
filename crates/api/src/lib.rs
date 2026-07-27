@@ -11,8 +11,8 @@ pub use util::lock;
 use axum::Router;
 use axum::routing::{get, post};
 use door::{auth, invite, join, login, logout, mint, repass, revive, token, untoken, who};
-use keel::adapt::pg::Postgres;
-use keel::{Core, Graph, Wire, app, bind, config as keel_config};
+use keel::adapt::db::Sqlite;
+use keel::{Core, Graph, Op, Wire, app, bind, config as keel_config, form};
 use keel_gate::Gate;
 use model::{Actor, App, Invite, Pass, Renew, Rescue, Team, plug};
 use std::path::Path;
@@ -33,47 +33,51 @@ pub fn shape() -> Graph {
 }
 
 pub async fn sail(root: &str) {
-    let runtime = match config::load() {
+    let runtime = match config::load(Path::new(root)) {
         Ok(runtime) => runtime,
-        Err(err) => halt("config", &err),
+        Err(err) => halt("config", &err.to_string()),
     };
-    let mut cfg = keel_config::load(Path::new(root));
-    if let Some(port) = runtime.port {
-        cfg.listen.port = port;
-    }
-    match runtime.pg {
-        Some(url) => {
-            if runtime.fresh {
-                fresh(&url).await;
-            }
-            let store = match Postgres::at(url).await {
+    let (cfg, home) = match keel_config::load(Path::new(root)) {
+        Ok(found) => found,
+        Err(err) => halt("config", &err.to_string()),
+    };
+    match runtime.store.kind {
+        config::Kind::Pg => {
+            let held = keel::adapt::pg::Store {
+                url: runtime.store.url.clone(),
+            };
+            let mut store = match held.open().await {
                 Ok(store) => store,
                 Err(err) => halt("pg", &err.to_string()),
             };
+            if runtime.fresh
+                && let Err(err) = store.wipe().await
+            {
+                halt("fresh", &err.to_string());
+            }
             let core = raise(bind(shape(), store).await, &cfg);
-            serve(core, &cfg, root, runtime.issuer).await;
+            serve(core, &cfg, root, &runtime.iss).await;
         }
-        None => {
-            let store = match cfg.open().await {
+        config::Kind::File => {
+            let held = keel::adapt::db::Store {
+                kind: keel::adapt::db::Kind::File,
+                path: runtime.store.path.clone(),
+            };
+            let store = match held.open(&home).await {
                 Ok(store) => store,
-                Err(err) => halt("config", &err.to_string()),
+                Err(err) => halt("store", &err.to_string()),
             };
             let core = raise(bind(shape(), store).await, &cfg);
-            serve(core, &cfg, root, runtime.issuer).await;
+            serve(core, &cfg, root, &runtime.iss).await;
         }
-    }
-}
-
-async fn fresh(url: &str) {
-    let mut store = match Postgres::at(url).await {
-        Ok(store) => store,
-        Err(err) => halt("fresh", &err.to_string()),
-    };
-    let wipe = store
-        .script("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
-        .await;
-    if let Err(err) = wipe {
-        halt("fresh", &err.to_string());
+        config::Kind::Memory => {
+            let store = match Sqlite::memory().await {
+                Ok(store) => store,
+                Err(err) => halt("store", &err.to_string()),
+            };
+            let core = raise(bind(shape(), store).await, &cfg);
+            serve(core, &cfg, root, &runtime.iss).await;
+        }
     }
 }
 
@@ -97,14 +101,17 @@ async fn serve<W: Wire + 'static>(
     core: Arc<Core<W>>,
     cfg: &keel_config::Config,
     root: &str,
-    issuer: Option<String>,
+    issuer: &str,
 ) {
     let (door, svc) = match rig(&core).await {
         Ok(pair) => pair,
         Err(err) => halt("rise", &err.to_string()),
     };
-    let iss = issuer.unwrap_or_else(|| format!("http://{}:{}", cfg.listen.host, cfg.listen.port));
-    let booth = Booth::new(core.clone(), svc, iss.starts_with("https://"));
+    let iss = match issuer.is_empty() {
+        true => format!("http://{}:{}", cfg.listen.host, cfg.listen.port),
+        false => issuer.to_string(),
+    };
+    let booth = Booth::new(core.clone(), door.clone(), svc, iss.starts_with("https://"));
     let plate = Router::new()
         .route("/invite", post(invite::<W>))
         .route("/join", post(join::<W>))
@@ -146,16 +153,35 @@ fn halt(seat: &str, note: &str) -> ! {
     std::process::exit(1)
 }
 
-async fn rig<W: Wire + 'static>(core: &Arc<Core<W>>) -> Result<(Gate<W>, i64), keel::adapt::Error> {
+pub async fn rig<W: Wire + 'static>(
+    core: &Arc<Core<W>>,
+) -> Result<(Gate<W>, i64), keel::adapt::Error> {
     let svc = hail(core).await?;
     let gate = Gate::rise(core.clone(), svc).await?.bar("barred");
-    seed(core, svc).await?;
+    let who = svc.to_string();
+    gate.sow(&[
+        ("all", "see", "Actor", "all"),
+        ("all", "see", "Team", "all"),
+        ("all", "see", "App", "all"),
+        (&who, "see", "Invite", "all"),
+        (&who, "end", "Invite", "all"),
+        (&who, "see", "Pass", "all"),
+        (&who, "see", "Rescue", "all"),
+        (&who, "end", "Rescue", "all"),
+        (&who, "see", "App", "all"),
+        (&who, "see", "Renew", "all"),
+        (&who, "put", "Renew", "all"),
+        (&who, "end", "Renew", "all"),
+    ])
+    .await?;
     Ok((gate, svc))
 }
 
 pub async fn hail<W: Wire>(core: &Arc<Core<W>>) -> Result<i64, keel::adapt::Error> {
-    let held = core.query(r#"from Actor where login = "ensign""#).await?;
-    match held.rows().first() {
+    let held = core
+        .one(&form("Actor").when("login", Op::Eq, "ensign"))
+        .await?;
+    match held {
         Some(row) => Ok(row.key()),
         None => {
             core.put(
@@ -170,48 +196,4 @@ pub async fn hail<W: Wire>(core: &Arc<Core<W>>) -> Result<i64, keel::adapt::Erro
             .await
         }
     }
-}
-
-pub async fn seed<W: Wire>(core: &Arc<Core<W>>, svc: i64) -> Result<(), keel::adapt::Error> {
-    let sown = core.query(r#"from @grant where who = "all" count"#).await?;
-    if sown.count() != Some(0) {
-        return Ok(());
-    }
-    let sudo = core.sudo();
-    let who = svc.to_string();
-    for unit in ["Actor", "Team", "App"] {
-        sudo.put(
-            "@grant",
-            &[
-                ("who", "all"),
-                ("verb", "see"),
-                ("unit", unit),
-                ("scope", "all"),
-            ],
-        )
-        .await?;
-    }
-    for (verb, unit) in [
-        ("see", "Invite"),
-        ("end", "Invite"),
-        ("see", "Pass"),
-        ("see", "Rescue"),
-        ("end", "Rescue"),
-        ("see", "App"),
-        ("see", "Renew"),
-        ("put", "Renew"),
-        ("end", "Renew"),
-    ] {
-        sudo.put(
-            "@grant",
-            &[
-                ("who", &who),
-                ("verb", verb),
-                ("unit", unit),
-                ("scope", "all"),
-            ],
-        )
-        .await?;
-    }
-    Ok(())
 }
