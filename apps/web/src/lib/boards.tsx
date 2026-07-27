@@ -9,9 +9,9 @@ import {
 	Tag,
 } from "@perish/react-components";
 import { useState } from "react";
-import { useHush } from "../lib/hush";
-import { say } from "../lib/say";
-import { invite, put, set } from "../lib/wire";
+import { useHush } from "./hush";
+import { say } from "./say";
+import { invite, put, set } from "./wire";
 
 type Row = { id: number } & Record<string, unknown>;
 

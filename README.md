@@ -25,5 +25,5 @@ sidecar status
 sidecar stop
 ```
 
-The CLI takes its API address explicitly through `ENSIGN_URL`; it has no fixed
-local-port fallback.
+The CLI takes its API root explicitly through `ENSIGN_URL`, including the
+stable `/api` suffix; it has no fixed local-port fallback.

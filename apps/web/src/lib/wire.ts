@@ -5,7 +5,7 @@ type Won = "ok" | "miss" | "barred" | "fail";
 type Made = "ok" | "floor" | "code" | "taken" | "fail";
 
 export function enter(login: string, pass: string): Promise<Won> {
-	return send("/login", { login, pass })
+	return send("/api/login", { login, pass })
 		.then((res): Won => {
 			if (res.ok) {
 				return "ok";
@@ -24,7 +24,7 @@ export function join(
 	name: string,
 	pass: string,
 ): Promise<Made> {
-	return send("/join", { code, login, name, pass })
+	return send("/api/join", { code, login, name, pass })
 		.then((res): Made => {
 			if (res.ok) {
 				return "ok";
@@ -47,7 +47,7 @@ export function revive(
 	code: string,
 	pass: string,
 ): Promise<Rescued> {
-	return send("/revive", { login, code, pass })
+	return send("/api/revive", { login, code, pass })
 		.then((res): Rescued => {
 			if (res.ok) {
 				return "ok";
@@ -66,7 +66,7 @@ export function revive(
 type Shift = "ok" | "floor" | "miss" | "anon" | "fail";
 
 export function repass(old: string, pass: string): Promise<Shift> {
-	return send("/repass", { old, pass })
+	return send("/api/repass", { old, pass })
 		.then((res): Shift => {
 			if (res.ok) {
 				return "ok";
@@ -83,7 +83,7 @@ export function repass(old: string, pass: string): Promise<Shift> {
 }
 
 export function leave(): Promise<boolean> {
-	return fetch("/logout", { method: "POST" })
+	return fetch("/api/logout", { method: "POST" })
 		.then((res) => res.ok || res.status === 400 || res.status === 404)
 		.catch(() => false);
 }
@@ -91,7 +91,7 @@ export function leave(): Promise<boolean> {
 type Me = { id: number; login: string; name: string };
 
 export function whoami(): Promise<Me | "anon" | "fail"> {
-	return fetch("/whoami")
+	return fetch("/api/whoami")
 		.then((res): Promise<Me | "anon" | "fail"> => {
 			if (res.ok) {
 				return res.json() as Promise<Me>;
@@ -102,7 +102,7 @@ export function whoami(): Promise<Me | "anon" | "fail"> {
 }
 
 export function mint(): Promise<string[] | "anon" | "fail"> {
-	return fetch("/mint", { method: "POST" })
+	return fetch("/api/mint", { method: "POST" })
 		.then((res): Promise<string[] | "anon" | "fail"> => {
 			if (res.ok) {
 				return res.json().then((bag: { codes: string[] }) => bag.codes);
@@ -115,7 +115,7 @@ export function mint(): Promise<string[] | "anon" | "fail"> {
 type Opened = { code: string; shut: "" | "anon" | "denied" | "fail" };
 
 export function invite(note: string): Promise<Opened> {
-	return send("/invite", { note })
+	return send("/api/invite", { note })
 		.then((res): Promise<Opened> => {
 			if (res.ok) {
 				return res
@@ -132,7 +132,7 @@ export function invite(note: string): Promise<Opened> {
 }
 
 export function rows(unit: string): Promise<Row[] | null> {
-	return fetch(`/${unit}`)
+	return fetch(`/api/${unit}`)
 		.then((res): Promise<Row[] | null> => {
 			return res.ok ? (res.json() as Promise<Row[]>) : Promise.resolve(null);
 		})
@@ -142,7 +142,7 @@ export function rows(unit: string): Promise<Row[] | null> {
 type Put = "ok" | "anon" | "denied" | "clash" | "fail";
 
 export function put(unit: string, body: Record<string, string>): Promise<Put> {
-	return send(`/${unit}`, body)
+	return send(`/api/${unit}`, body)
 		.then((res): Put => {
 			if (res.ok) {
 				return "ok";
@@ -165,7 +165,7 @@ export function set(
 	id: number,
 	body: Record<string, string>,
 ): Promise<Set> {
-	return fetch(`/${unit}/${id}`, {
+	return fetch(`/api/${unit}/${id}`, {
 		method: "PATCH",
 		headers: { "content-type": "application/json" },
 		body: JSON.stringify(body),
@@ -183,7 +183,7 @@ export function set(
 }
 
 export function crews(me: number): Promise<string[] | null> {
-	return fetch("/query", {
+	return fetch("/api/query", {
 		method: "POST",
 		headers: { "content-type": "application/json" },
 		body: JSON.stringify({ q: `from Team where members has "${me}"` }),

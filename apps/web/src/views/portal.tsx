@@ -12,10 +12,10 @@ import {
 	Tag,
 } from "@perish/react-components";
 import { useEffect, useState } from "react";
+import { Down } from "../lib/down";
 import { useHush } from "../lib/hush";
 import { say } from "../lib/say";
 import { crews, leave, mint, repass, whoami } from "../lib/wire";
-import { Down } from "./Down";
 
 type Me = { id: number; login: string; name: string };
 
@@ -73,7 +73,7 @@ function Guard() {
 	);
 }
 
-export function Portal() {
+export default function Portal() {
 	const [me, setMe] = useState<Me | null>(null);
 	const [broke, setBroke] = useState(false);
 	const [teams, setTeams] = useState<string[]>([]);

@@ -24,6 +24,9 @@ await bin("pnpm").run(["install", "--frozen-lockfile"]);
 io.print("==> biome");
 await bin("pnpm").run(["biome", "ci", "."]);
 
+io.print("==> web build");
+await bin("pnpm").run(["--filter", "@ensign/web", "build"]);
+
 io.print("==> tsc");
 await bin("pnpm").run(["-r", "exec", "tsc", "--noEmit"]);
 

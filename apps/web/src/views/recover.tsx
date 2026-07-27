@@ -5,7 +5,7 @@ import { carry } from "../lib/path";
 import { say } from "../lib/say";
 import { enter, revive } from "../lib/wire";
 
-export function Recover() {
+export default function Recover() {
 	const [login, setLogin] = useState("");
 	const [code, setCode] = useState("");
 	const [pass, setPass] = useState("");

@@ -12,7 +12,7 @@ web:
   image: git.perish.top/perishlab/ensign-web
   tag: ""
   replicas: 1
-# Public https origin ensign issues tokens under. MUST be set for any real deploy:
+# Public https API root ensign issues tokens under, including /api. MUST be set:
 # unset means the api falls back to http://<listen.host>:<port>, and listen.host is
 # 0.0.0.0 here, so it would advertise an unreachable issuer. https also turns on the
 # Secure flag on session cookies.

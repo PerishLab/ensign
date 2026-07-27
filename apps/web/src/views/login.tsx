@@ -5,7 +5,7 @@ import { back, carry } from "../lib/path";
 import { say } from "../lib/say";
 import { enter } from "../lib/wire";
 
-export function Login() {
+export default function Login() {
 	const [login, setLogin] = useState("");
 	const [pass, setPass] = useState("");
 	const [warn, setWarn] = useState("");

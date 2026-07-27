@@ -5,23 +5,8 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
-    location = /health { return 200 "ok\n"; }
-
-    location ~ ^/(logout|invite|whoami|auth|mint|repass|revive|authorize|token|userinfo|query|Actor|Team|App|bearer)$ {
-        proxy_pass http://api;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-    location /.well-known/ {
-        proxy_pass http://api;
-        proxy_set_header Host $host;
-    }
-
-    location = /login { error_page 418 = @api; if ($request_method = POST) { return 418; } try_files /nonexistent /index.html; }
-    location = /join  { error_page 418 = @api; if ($request_method = POST) { return 418; } try_files /nonexistent /index.html; }
-
-    location @api {
+    location = /health { try_files /health =404; }
+    location ~ ^/api(?:/|$) {
         proxy_pass http://api;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

@@ -1,13 +1,13 @@
 import { Bar } from "@ensign/components";
 import { Button, Link, Note, Page } from "@perish/react-components";
 import { useEffect, useRef, useState } from "react";
+import { Actors, Apps, Invites, Teams } from "../lib/boards";
+import { Down } from "../lib/down";
 import { leave, rows, whoami } from "../lib/wire";
-import { Actors, Apps, Invites, Teams } from "./boards";
-import { Down } from "./Down";
 
 type Row = { id: number } & Record<string, unknown>;
 
-export function Admin() {
+export default function Admin() {
 	const [ready, setReady] = useState(false);
 	const [broke, setBroke] = useState(false);
 	const [me, setMe] = useState(0);

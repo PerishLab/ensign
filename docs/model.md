@@ -41,19 +41,21 @@ become keel issues and registry releases, never local workarounds.
 `#[resource(veil)]` (keel C-18): engine-governed, Face-written by
 ceremonies, but off the generic HTTP projection. No operator can author
 or read a credential row on the wire — closes the self-mint bypass.
-Issuance is a ceremony: `/invite` mints a server-CSPRNG code (never
-client-chosen); `/join` consumes it; `/revoke` (gate) ends a token.
+Issuance is a ceremony: `/api/invite` mints a server-CSPRNG code
+(never client-chosen); `/api/join` consumes it; `/api/revoke` (gate)
+ends a token.
 
 ## Token & ceremony hygiene
 
-- Issuer is configurable (`ENSIGN_ISS`), not the bind address; session
-  cookies carry `SameSite=Lax` and `Secure` behind https; `/token` and
-  credential responses set `Cache-Control: no-store`.
-- `/authorize` requires the `openid` scope, accepts `nonce` (echoed into
-  the id token), builds its redirect with percent-encoding, and admits
-  only https or loopback redirect targets. id and access tokens carry a
-  `kind` claim; `/userinfo` accepts only `kind=access` and returns
-  profile claims only when the token's scope grants them.
+- Issuer is configurable (`API_ISS`), includes the stable `/api` root,
+  and is not the bind address; session cookies carry `SameSite=Lax` and
+  `Secure` behind https; `/api/token` and credential responses set
+  `Cache-Control: no-store`.
+- `/api/authorize` requires the `openid` scope, accepts `nonce` (echoed
+  into the id token), builds its redirect with percent-encoding, and
+  admits only https or loopback redirect targets. id and access tokens
+  carry a `kind` claim; `/api/userinfo` accepts only `kind=access` and
+  returns profile claims only when the token's scope grants them.
 - `Pass` is one2one on Actor (one live credential); join consumes the
   invite first (a live-row CAS) and rejects passwords under 8 chars;
   recovery re-floors — burning every remaining rescue code and ending

@@ -16,7 +16,7 @@ services:
     environment:
       API_STORE_KIND: "pg"
       API_STORE_URL: "host=pg port=5432 user=ensign password=ensign dbname=ensign"
-      API_ISS: "http://localhost:8890"
+      API_ISS: "http://localhost:8890/api"
     volumes:
       - sign:/ensign/.local
     depends_on:

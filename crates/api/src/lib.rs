@@ -18,6 +18,8 @@ use model::{Actor, App, Invite, Pass, Renew, Rescue, Team, plug};
 use std::path::Path;
 use std::sync::Arc;
 
+const PREFIX: &str = "/api";
+
 pub fn shape() -> Graph {
     let mut graph = Graph::new();
     graph
@@ -108,8 +110,8 @@ async fn serve<W: Wire + 'static>(
         Err(err) => halt("rise", &err.to_string()),
     };
     let iss = match issuer.is_empty() {
-        true => format!("http://{}:{}", cfg.listen.host, cfg.listen.port),
-        false => issuer.to_string(),
+        true => format!("http://{}:{}{PREFIX}", cfg.listen.host, cfg.listen.port),
+        false => issuer.trim_end_matches('/').to_string(),
     };
     let booth = Booth::new(core.clone(), door.clone(), svc, iss.starts_with("https://"));
     let plate = Router::new()
@@ -129,7 +131,7 @@ async fn serve<W: Wire + 'static>(
     let base = app(core.clone(), &cfg.listen.prefix)
         .merge(plate)
         .merge(flags);
-    let router = door.screen(base);
+    let router = Router::new().nest(PREFIX, door.screen(base));
     let addr = format!("{}:{}", cfg.listen.host, cfg.listen.port);
     let bound = match tokio::net::TcpListener::bind(&addr).await {
         Ok(bound) => bound,

@@ -4,7 +4,8 @@ import { io } from "@/lib/std/io.ts";
 
 const host = "127.0.0.1";
 const port = 13500;
-const base = `http://${host}:${port}`;
+const origin = `http://${host}:${port}`;
+const base = `${origin}/api`;
 
 function usage(): void {
   io.print("Usage: runseal :act");
@@ -59,6 +60,13 @@ const drain = (async () => {
 let failed = false;
 try {
   await ready(`${base}/health`, 40);
+  await check("the api lives only below its namespace", async () => {
+    const bare = await fetch(`${origin}/health`);
+    await bare.body?.cancel();
+    if (bare.status !== 404) {
+      throw new Error(`root health ${bare.status}`);
+    }
+  });
   const crown = { authorization: `sudo ${await sudo()}` };
 
   io.print("==> act 1: identity floor");
@@ -448,7 +456,7 @@ try {
       throw new Error(`anon authorize ${res.status}`);
     }
     const loc = res.headers.get("location") ?? "";
-    if (!loc.startsWith("/login?return=%2Fauthorize")) {
+    if (!loc.startsWith("/login?return=%2Fapi%2Fauthorize")) {
       throw new Error(`bounce ${loc}`);
     }
   });

@@ -11,7 +11,7 @@ const WARNS = {
 	fail: "Something went wrong — try again.",
 } as const;
 
-export function Join() {
+export default function Join() {
 	const [code, setCode] = useState("");
 	const [login, setLogin] = useState("");
 	const [name, setName] = useState("");
