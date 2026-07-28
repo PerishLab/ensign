@@ -1,6 +1,7 @@
-import { Card, Mark } from "@ensign/components";
 import { Button, Field, Link, Note, Split } from "@perish/react-components";
 import { useState } from "react";
+import { Card } from "../lib/components/card";
+import { Mark } from "../lib/components/mark";
 import { carry } from "../lib/path";
 import { say } from "../lib/say";
 import { enter, revive } from "../lib/wire";

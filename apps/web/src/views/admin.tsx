@@ -1,8 +1,8 @@
-import { Bar } from "@ensign/components";
 import { Button, Link, Note, Page } from "@perish/react-components";
 import { useEffect, useRef, useState } from "react";
-import { Actors, Apps, Invites, Teams } from "../lib/boards";
-import { Down } from "../lib/down";
+import { Bar } from "../lib/components/bar";
+import { Actors, Apps, Invites, Teams } from "../lib/components/boards";
+import { Down } from "../lib/components/down";
 import { leave, rows, whoami } from "../lib/wire";
 
 type Row = { id: number } & Record<string, unknown>;

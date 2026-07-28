@@ -11,7 +11,8 @@ sudo window at the floor, everything vendor-dependent deferred.
 
 - `crates/api` — the server; the keel caller.
 - `crates/cli` — the client.
-- `apps/web` + `packages/components` — the web face (pnpm workspace).
+- `apps/web` — the web face; local style-free components stay under
+  `src/lib/components` and reusable visual behavior comes from Design.
 - `charts/ensign` — the helm delivery.
 
 ## Local development

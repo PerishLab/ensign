@@ -9,7 +9,6 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@ensign/components": "workspace:*",
 		"@perish/react-components": "catalog:",
 		"react": "catalog:",
 		"react-dom": "catalog:"

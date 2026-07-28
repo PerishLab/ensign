@@ -1,6 +1,5 @@
 packages:
   - apps/*
-  - packages/*
 
 minimumReleaseAgeExclude:
   - "@perish/react-components"

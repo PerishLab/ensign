@@ -1,5 +1,6 @@
-import { Card, Mark } from "@ensign/components";
 import { Link, Note, Split } from "@perish/react-components";
+import { Card } from "./card";
+import { Mark } from "./mark";
 
 export function Down() {
 	return (

@@ -1,4 +1,3 @@
-import { Bar } from "@ensign/components";
 import {
 	Board,
 	Button,
@@ -12,7 +11,8 @@ import {
 	Tag,
 } from "@perish/react-components";
 import { useEffect, useState } from "react";
-import { Down } from "../lib/down";
+import { Bar } from "../lib/components/bar";
+import { Down } from "../lib/components/down";
 import { useHush } from "../lib/hush";
 import { say } from "../lib/say";
 import { crews, leave, mint, repass, whoami } from "../lib/wire";

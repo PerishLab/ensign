@@ -66,8 +66,11 @@ await bin("deno").run([
   ".runseal/wrappers/ship.ts",
 ]);
 
-io.print("==> negentropy");
-await bin("negentropy").run(["--strict", "."]);
+io.print("==> plumb doctor");
+await bin("plumb").run(["doctor", "."]);
+
+io.print("==> ectropy");
+await bin("ectropy").run(["--strict", "."]);
 
 io.print("==> act");
 const root = await bin("git").text(["rev-parse", "--show-toplevel"]);

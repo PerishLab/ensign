@@ -10,12 +10,12 @@ language the fleet inherits.
 ## The shared substrate
 
 Generic tokens, themes, layout, fields, controls, and content come from
-`@perish/react-components`; Vite materializes every co-located stylesheet
+`@perish/react-components`; Vite materializes the shared Design runtime
 through `@perish/vite-plugin-design`.
 
-Ensign keeps only three product compositions in `packages/components`: `Bar`,
-`Mark`, and `Card`. Their sheets may consume the shared token vocabulary but
-must not define a parallel foundation.
+Ensign keeps product compositions under `apps/web/src/lib/components`.
+They compose shared primitives and semantic markup but own no stylesheet,
+style declaration, or parallel token foundation.
 
 ## The tokens
 
@@ -34,9 +34,9 @@ An unused token is a squatter and gets evicted.
 
 ## Territory
 
-Only the shared package and `packages/components` declare style; `apps/web`
-consumes components and declares nothing. Shared `Shell` loads tokens and
-themes and sets the page. Every view mounts inside it.
+Only the shared Design package declares style. Ensign's `lib/components`
+territory is style-free, `Shell` loads the shared runtime, and every view
+mounts inside it.
 
 ## The bar
 
