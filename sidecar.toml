@@ -5,14 +5,12 @@ root = "."
 
 [[sidecars]]
 name = "api"
-command = "sh"
-args = [
-  "-c",
-  "KEEL_LISTEN_PORT=$SIDECAR_PORT exec cargo run --locked -p api -- .",
-]
+command = "cargo"
+args = ["run", "--locked", "-p", "api", "--", "."]
 cwd = "."
 mode = "dev"
 port = 0
+env = { KEEL_LISTEN_PORT = "{port}" }
 health_url = "http://127.0.0.1:{port}/api/health"
 ready = { role = "api" }
 
