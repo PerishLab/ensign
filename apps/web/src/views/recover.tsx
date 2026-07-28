@@ -32,22 +32,29 @@ export default function Recover() {
 	}
 
 	return (
-		<Card>
-			<Mark note="Recover your account" />
-			<Note text="A rescue code works once. Recovering sets a new password, burns all your codes, and ends every session." />
-			<Field label="Login" value={login} change={setLogin} />
-			<Field label="Rescue code" value={code} change={setCode} />
-			<Field
-				label="New password"
-				value={pass}
-				change={setPass}
-				kind="password"
-			/>
-			{warn ? <Note text={warn} tone="warn" /> : null}
-			<Button label="Recover" press={submit} wide busy={busy} />
-			<Split>
-				<Link label="Back to sign in" href={`/login${carry()}`} />
-			</Split>
-		</Card>
+		<form
+			onSubmit={(event) => {
+				event.preventDefault();
+				void submit();
+			}}
+		>
+			<Card>
+				<Mark note="Recover your account" />
+				<Note text="A rescue code works once. Recovering sets a new password, burns all your codes, and ends every session." />
+				<Field label="Login" value={login} change={setLogin} />
+				<Field label="Rescue code" value={code} change={setCode} />
+				<Field
+					label="New password"
+					value={pass}
+					change={setPass}
+					kind="password"
+				/>
+				{warn ? <Note text={warn} tone="warn" /> : null}
+				<Button label="Recover" submit wide busy={busy} />
+				<Split>
+					<Link label="Back to sign in" href={`/login${carry()}`} />
+				</Split>
+			</Card>
+		</form>
 	);
 }

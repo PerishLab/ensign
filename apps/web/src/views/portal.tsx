@@ -53,21 +53,28 @@ function Guard() {
 			title="Password"
 			brief="Your brain key. Changing it takes your current password."
 		>
-			<Field
-				label="Current password"
-				value={old}
-				change={setOld}
-				kind="password"
-			/>
-			<Split>
+			<form
+				onSubmit={(event) => {
+					event.preventDefault();
+					void shift();
+				}}
+			>
 				<Field
-					label="New password"
-					value={pass}
-					change={setPass}
+					label="Current password"
+					value={old}
+					change={setOld}
 					kind="password"
 				/>
-				<Button label="Set password" press={shift} tone="quiet" busy={busy} />
-			</Split>
+				<Split>
+					<Field
+						label="New password"
+						value={pass}
+						change={setPass}
+						kind="password"
+					/>
+					<Button label="Set password" submit tone="quiet" busy={busy} />
+				</Split>
+			</form>
 			{note ? <Note text={note} tone={tone} /> : null}
 		</Board>
 	);

@@ -46,15 +46,22 @@ export function Invites() {
 			title="Invites"
 			brief="Joining is invitation-only. An invite code admits exactly one person."
 		>
-			<Split>
-				<Field
-					label="Note"
-					value={note}
-					change={setNote}
-					hint="who it is for"
-				/>
-				<Button label="Open invite" press={open} busy={busy} />
-			</Split>
+			<form
+				onSubmit={(event) => {
+					event.preventDefault();
+					void open();
+				}}
+			>
+				<Split>
+					<Field
+						label="Note"
+						value={note}
+						change={setNote}
+						hint="who it is for"
+					/>
+					<Button label="Open invite" submit busy={busy} />
+				</Split>
+			</form>
 			{code ? (
 				<>
 					<Note
@@ -161,10 +168,17 @@ export function Teams(props: {
 			{props.teams.map((row) => (
 				<Line key={row.id} name={String(row.name)} />
 			))}
-			<Split>
-				<Field label="New team" value={name} change={setName} />
-				<Button label="Found" press={found} tone="quiet" busy={busy} />
-			</Split>
+			<form
+				onSubmit={(event) => {
+					event.preventDefault();
+					void found();
+				}}
+			>
+				<Split>
+					<Field label="New team" value={name} change={setName} />
+					<Button label="Found" submit tone="quiet" busy={busy} />
+				</Split>
+			</form>
 			{warn ? <Note text={warn} tone="warn" /> : null}
 		</Board>
 	);
@@ -232,11 +246,18 @@ export function Apps(props: {
 					<Tag text={String(row.mode ?? "")} />
 				</Line>
 			))}
-			<Field label="Name" value={name} change={setName} />
-			<Field label="Slug" value={slug} change={setSlug} />
-			<Field label="Home URL" value={home} change={setHome} />
-			<Field label="Redirect URL" value={redirect} change={setRedirect} />
-			<Button label="Register app" press={register} tone="quiet" busy={busy} />
+			<form
+				onSubmit={(event) => {
+					event.preventDefault();
+					void register();
+				}}
+			>
+				<Field label="Name" value={name} change={setName} />
+				<Field label="Slug" value={slug} change={setSlug} />
+				<Field label="Home URL" value={home} change={setHome} />
+				<Field label="Redirect URL" value={redirect} change={setRedirect} />
+				<Button label="Register app" submit tone="quiet" busy={busy} />
+			</form>
 			{warn ? <Note text={warn} tone="warn" /> : null}
 		</Board>
 	);

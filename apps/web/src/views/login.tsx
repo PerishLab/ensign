@@ -29,16 +29,23 @@ export default function Login() {
 	}
 
 	return (
-		<Card>
-			<Mark note="Sign in to continue" />
-			<Field label="Login" value={login} change={setLogin} />
-			<Field label="Password" value={pass} change={setPass} kind="password" />
-			{warn ? <Note text={warn} tone="warn" /> : null}
-			<Button label="Sign in" press={submit} wide busy={busy} />
-			<Split>
-				<Link label="Have an invite?" href={`/join${carry()}`} />
-				<Link label="Lost your key?" href={`/recover${carry()}`} />
-			</Split>
-		</Card>
+		<form
+			onSubmit={(event) => {
+				event.preventDefault();
+				void submit();
+			}}
+		>
+			<Card>
+				<Mark note="Sign in to continue" />
+				<Field label="Login" value={login} change={setLogin} />
+				<Field label="Password" value={pass} change={setPass} kind="password" />
+				{warn ? <Note text={warn} tone="warn" /> : null}
+				<Button label="Sign in" submit wide busy={busy} />
+				<Split>
+					<Link label="Have an invite?" href={`/join${carry()}`} />
+					<Link label="Lost your key?" href={`/recover${carry()}`} />
+				</Split>
+			</Card>
+		</form>
 	);
 }

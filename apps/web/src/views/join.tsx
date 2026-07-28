@@ -35,17 +35,24 @@ export default function Join() {
 	}
 
 	return (
-		<Card>
-			<Mark note="Join with your invite" />
-			<Field label="Invite code" value={code} change={setCode} />
-			<Field label="Login" value={login} change={setLogin} />
-			<Field label="Name" value={name} change={setName} />
-			<Field label="Password" value={pass} change={setPass} kind="password" />
-			{warn ? <Note text={warn} tone="warn" /> : null}
-			<Button label="Create account" press={submit} wide busy={busy} />
-			<Split>
-				<Link label="Already aboard? Sign in" href={`/login${carry()}`} />
-			</Split>
-		</Card>
+		<form
+			onSubmit={(event) => {
+				event.preventDefault();
+				void submit();
+			}}
+		>
+			<Card>
+				<Mark note="Join with your invite" />
+				<Field label="Invite code" value={code} change={setCode} />
+				<Field label="Login" value={login} change={setLogin} />
+				<Field label="Name" value={name} change={setName} />
+				<Field label="Password" value={pass} change={setPass} kind="password" />
+				{warn ? <Note text={warn} tone="warn" /> : null}
+				<Button label="Create account" submit wide busy={busy} />
+				<Split>
+					<Link label="Already aboard? Sign in" href={`/login${carry()}`} />
+				</Split>
+			</Card>
+		</form>
 	);
 }
