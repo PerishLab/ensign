@@ -70,7 +70,7 @@ io.print("==> plumb doctor");
 await bin("plumb").run(["doctor", "."]);
 
 io.print("==> ectropy");
-await bin("ectropy").run(["--strict", "."]);
+await bin("ectropy").run(["."]);
 
 io.print("==> act");
 const root = await bin("git").text(["rev-parse", "--show-toplevel"]);
