@@ -1,7 +1,7 @@
 {
   "version": "5",
   "specifiers": {
-    "jsr:@perish/sealkit@~0.2.1": "0.2.1",
+    "jsr:@perish/sealkit@~0.3.1": "0.3.3",
     "jsr:@perish/shield@0.1.0": "0.1.0",
     "jsr:@std/cli@1.0.30": "1.0.30",
     "jsr:@std/fs@1.0.19": "1.0.19",
@@ -11,8 +11,8 @@
     "jsr:@std/yaml@1.0.9": "1.0.9"
   },
   "jsr": {
-    "@perish/sealkit@0.2.1": {
-      "integrity": "6e94c2807a7a817b59ab0aabf592334c5039777722f3624432f3c17bbebfc7b9",
+    "@perish/sealkit@0.3.3": {
+      "integrity": "c6c9dc6c675a0460d51129fff24526bc53e25e35e2c701ca6190f84b4b10d885",
       "dependencies": [
         "jsr:@perish/shield",
         "jsr:@std/cli",
@@ -49,7 +49,7 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@perish/sealkit@~0.2.1",
+      "jsr:@perish/sealkit@~0.3.1",
       "jsr:@std/cli@1.0.30"
     ]
   }
