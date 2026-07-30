@@ -1,24 +1,29 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
-  name: {{ .Release.Name }}-api
+  name: {{ .Release.Name }}-bootstrap
+  annotations:
+    # Runs after the store exists and before the release is called done.
+    # Idempotent: an occupied estate is replayed, never re-minted.
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation
 spec:
-  replicas: {{ .Values.api.replicas }}
-  selector:
-    matchLabels:
-      app: {{ .Release.Name }}-api
+  backoffLimit: {{ .Values.bootstrap.retries }}
   template:
     metadata:
-      labels:
-        app: {{ .Release.Name }}-api
+      name: {{ .Release.Name }}-bootstrap
     spec:
-      serviceAccountName: {{ .Release.Name }}-api
+      restartPolicy: Never
+      serviceAccountName: {{ .Release.Name }}-bootstrap
       containers:
-        - name: api
+        - name: bootstrap
           image: "{{ .Values.api.image }}:{{ .Values.api.tag | default .Chart.AppVersion }}"
           args:
-            - serve
+            - bootstrap
             - /ensign
+            - --artifact
+            - sudo=kubernetes:{{ .Release.Name }}-sudo
             - --artifact
             - signing=kubernetes:{{ .Release.Name }}-signing
           env:
@@ -33,14 +38,6 @@ spec:
             - name: API_ISS
               value: {{ .Values.issuer | quote }}
             {{- end }}
-          ports:
-            - containerPort: {{ .Values.api.port }}
-          readinessProbe:
-            httpGet:
-              path: /api/health
-              port: {{ .Values.api.port }}
-            initialDelaySeconds: 3
-            periodSeconds: 5
           volumeMounts:
             - name: config
               mountPath: /ensign/keel.toml
@@ -49,14 +46,3 @@ spec:
         - name: config
           configMap:
             name: {{ .Release.Name }}-config
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ .Release.Name }}-api
-spec:
-  selector:
-    app: {{ .Release.Name }}-api
-  ports:
-    - port: {{ .Values.api.port }}
-      targetPort: {{ .Values.api.port }}

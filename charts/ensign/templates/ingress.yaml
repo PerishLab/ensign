@@ -28,11 +28,4 @@ spec:
                 name: {{ .Release.Name }}-api
                 port:
                   number: {{ .Values.api.port }}
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ .Release.Name }}-web
-                port:
-                  number: 80
 {{- end }}

@@ -2,7 +2,6 @@ use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as B64;
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use serde_json::{Value, json};
-use std::path::Path;
 
 pub(crate) struct Keys {
     pub(crate) enc: EncodingKey,
@@ -11,13 +10,19 @@ pub(crate) struct Keys {
     pub(crate) kid: String,
 }
 
-pub(crate) fn keys(path: &Path) -> Result<Keys, String> {
+pub(crate) fn keys(artifact: &crate::artifact::Artifact) -> Result<Keys, String> {
+    let held = artifact
+        .load()?
+        .ok_or_else(|| "signing artifact is absent".to_string())?;
+    read(&held)
+}
+
+fn read(bytes: &[u8]) -> Result<Keys, String> {
     use p256::SecretKey;
     use p256::pkcs8::DecodePrivateKey;
-    let pem = std::fs::read_to_string(path)
-        .map_err(|err| format!("cannot read signing artifact {}: {err}", path.display()))?;
-    let secret = SecretKey::from_pkcs8_pem(&pem)
-        .map_err(|_| format!("malformed signing artifact {}", path.display()))?;
+    let pem = std::str::from_utf8(bytes).map_err(|_| "signing artifact is not text".to_string())?;
+    let secret =
+        SecretKey::from_pkcs8_pem(pem).map_err(|_| "malformed signing artifact".to_string())?;
     shape(secret)
 }
 
@@ -26,22 +31,16 @@ pub(crate) fn provision(artifact: &crate::artifact::Artifact) -> Result<Keys, St
     use p256::elliptic_curve::Generate;
     use p256::pkcs8::EncodePrivateKey;
     use p256::pkcs8::LineEnding;
-    match keys(artifact.path()) {
-        Ok(keys) => return Ok(keys),
-        Err(_) if artifact.path().exists() => {
-            return Err(format!(
-                "signing artifact is inaccessible or malformed: {}",
-                artifact.path().display()
-            ));
-        }
-        Err(_) => {}
+    if let Some(held) = artifact.load()? {
+        return read(&held)
+            .map_err(|note| format!("signing artifact is inaccessible or malformed: {note}"));
     }
     let secret = SecretKey::generate();
     let pem = secret
         .to_pkcs8_pem(LineEnding::LF)
         .map_err(|_| "cannot encode signing key".to_string())?;
     if !artifact.keep(pem.as_bytes())? {
-        return keys(artifact.path());
+        return keys(artifact);
     }
     shape(secret)
 }

@@ -1,18 +1,42 @@
 ensign is installed.
 
-Read the genesis sudo token out of the api log. It is minted and printed once,
-on first install, and is never re-minted:
+The bootstrap Job minted the genesis sudo token and kept it in a Secret. It is
+never printed and never re-minted; read it when you need it:
 
-  kubectl -n {{ .Release.Namespace }} logs deploy/{{ .Release.Name }}-api \
-    | grep 'keel: sudo token' | awk '{print $NF}'
+  kubectl -n {{ .Release.Namespace }} get secret {{ .Release.Name }}-sudo \
+    -o jsonpath='{.data.value}' | base64 -d
 
-Do this now. If the api pod restarts first the line is gone from the current
-log; `--previous` reaches one restart back, and past that the token cannot be
-recovered without a fresh store.
+ensign creates both custody Secrets itself, through the api server. Helm never
+owned them, so upgrade, rollback and uninstall cannot touch them — retention
+needs no annotation. Deleting {{ .Release.Name }}-sudo by hand while the store
+survives loses lockout recovery for good.
 
-Reach the web UI through the ingress host:
+The store keeps its own pair. With the bundled PostgreSQL the chart generates
+the password on first install and preserves it across upgrades; the data lives
+in a StatefulSet volumeClaimTemplate, which Kubernetes leaves behind when the
+release goes. So store and custody survive uninstall together — they stay a
+matched pair. Wiping the store while sudo custody survives is recoverable: the
+next bootstrap re-seals the vacant estate with the kept token. The reverse is
+not: an occupied estate whose sudo Secret is gone cannot be bootstrapped.
 
-  {{ if .Values.ingress.enabled }}{{ $ann := .Values.ingress.annotations | default dict }}{{ if or .Values.ingress.tls (eq (get $ann "traefik.ingress.kubernetes.io/router.tls") "true") }}https{{ else }}http{{ end }}://{{ .Values.ingress.host }}/{{ else }}(ingress disabled — port-forward svc/{{ .Release.Name }}-web:80){{ end }}
+Point at an external PostgreSQL with postgres.urlSecret.name and .key, and the
+chart holds no credential at all.
 
-The sudo token is the one pre-identity axiom — use it once to seed your
-first admin grants, then rely on operator faces.
+The api seat cannot read that Secret. Its ServiceAccount is granted get on
+{{ .Release.Name }}-signing alone.
+
+On a fresh install the api pod may restart a few times until the Job finishes:
+serve verifies its prerequisites and refuses rather than writing anything.
+
+Seed the first administrator with the cli, which reads sudo from stdin:
+
+  kubectl -n {{ .Release.Namespace }} get secret {{ .Release.Name }}-sudo \
+    -o jsonpath='{.data.value}' | base64 -d | ensign crown <login>
+
+Sudo is the one pre-identity axiom. Use it to open the first invite and to
+crown the first administrator, then leave it dormant for lockout recovery.
+
+Only the api is routed. The web plane is deferred until its delivery paradigm
+matures; it returns as an addition, not a migration.
+
+  {{ if .Values.ingress.enabled }}{{ $ann := .Values.ingress.annotations | default dict }}{{ if or .Values.ingress.tls (eq (get $ann "traefik.ingress.kubernetes.io/router.tls") "true") }}https{{ else }}http{{ end }}://{{ .Values.ingress.host }}/api{{ else }}(ingress disabled — port-forward svc/{{ .Release.Name }}-api:{{ .Values.api.port }}){{ end }}

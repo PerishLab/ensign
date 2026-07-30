@@ -200,7 +200,7 @@ async fn listen<W: Wire + 'static>(
         .route("/revive", post(revive::<W>))
         .route("/bearer", post(token::<W>).delete(untoken::<W>))
         .with_state(booth);
-    let keys = match oidc::keys(signing.path()) {
+    let keys = match oidc::keys(signing) {
         Ok(keys) => keys,
         Err(err) => halt("signing", &err),
     };

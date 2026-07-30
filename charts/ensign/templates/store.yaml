@@ -1,7 +1,12 @@
+{{- if not .Values.postgres.urlSecret.name }}
 apiVersion: v1
 kind: Secret
 metadata:
   name: {{ .Release.Name }}-store
 type: Opaque
 stringData:
+  # Generated once and preserved across upgrades by lookup. Never a well-known
+  # default: the store credential follows the same rule as sudo custody.
+  PGPASSWORD: {{ include "ensign.pgpass" . | quote }}
   API_STORE_URL: {{ include "ensign.pgurl" . | quote }}
+{{- end }}

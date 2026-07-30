@@ -8,10 +8,6 @@ api:
   # "Authority is cached too" (H-8).
   replicas: 1
   port: 3500
-web:
-  image: git.perish.top/perishlab/ensign-web
-  tag: ""
-  replicas: 1
 # Public https API root ensign issues tokens under, including /api. MUST be set:
 # unset means the api falls back to http://<listen.host>:<port>, and listen.host is
 # 0.0.0.0 here, so it would advertise an unreachable issuer. https also turns on the
@@ -30,11 +26,19 @@ ingress:
   tls: []
 postgres:
   bundled: true
+  # Point at an existing Secret instead of letting the chart hold the
+  # credential. Set both fields; url and password are then ignored.
+  urlSecret:
+    name: ""
+    key: ""
   url: ""
   image: postgres:17-alpine
   user: ensign
-  password: ensign
   db: ensign
+  # Left empty on purpose. The chart generates one on first install and
+  # preserves it across upgrades; a well-known default is not a credential.
+  password: ""
   storage: 1Gi
-vault:
-  storage: 128Mi
+bootstrap:
+  # The Job replays an occupied estate, so a retry is cheap and safe.
+  retries: 6

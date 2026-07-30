@@ -3,9 +3,12 @@ use std::fs::OpenOptions;
 use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 
+mod seal;
+
 #[derive(Clone, Debug)]
-pub(crate) struct Artifact {
-    path: PathBuf,
+pub(crate) enum Artifact {
+    Kept(PathBuf),
+    Sealed(String),
 }
 
 #[derive(Clone, Debug)]
@@ -16,26 +19,27 @@ pub(crate) struct Bootstrap {
 
 impl Artifact {
     pub(crate) fn load(&self) -> Result<Option<Vec<u8>>, String> {
-        match std::fs::read(&self.path) {
+        let path = match self {
+            Artifact::Sealed(name) => return seal::load(name),
+            Artifact::Kept(path) => path,
+        };
+        match std::fs::read(path) {
             Ok(bytes) => Ok(Some(bytes)),
             Err(err) if err.kind() == ErrorKind::NotFound => Ok(None),
-            Err(err) => Err(format!(
-                "cannot read artifact {}: {err}",
-                self.path.display()
-            )),
+            Err(err) => Err(format!("cannot read artifact {}: {err}", path.display())),
         }
     }
 
-    pub(crate) fn path(&self) -> &Path {
-        &self.path
-    }
-
     pub(crate) fn keep(&self, bytes: &[u8]) -> Result<bool, String> {
-        if let Some(parent) = self.path.parent() {
+        let path = match self {
+            Artifact::Sealed(name) => return seal::keep(name, bytes),
+            Artifact::Kept(path) => path,
+        };
+        if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|err| {
                 format!(
                     "cannot prepare artifact destination {}: {err}",
-                    self.path.display()
+                    path.display()
                 )
             })?;
         }
@@ -46,19 +50,16 @@ impl Artifact {
             use std::os::unix::fs::OpenOptionsExt;
             options.mode(0o600);
         }
-        let mut file = match options.open(&self.path) {
+        let mut file = match options.open(path) {
             Ok(file) => file,
             Err(err) if err.kind() == ErrorKind::AlreadyExists => return Ok(false),
             Err(err) => {
-                return Err(format!(
-                    "cannot create artifact {}: {err}",
-                    self.path.display()
-                ));
+                return Err(format!("cannot create artifact {}: {err}", path.display()));
             }
         };
         file.write_all(bytes)
             .and_then(|_| file.sync_all())
-            .map_err(|err| format!("cannot keep artifact {}: {err}", self.path.display()))?;
+            .map_err(|err| format!("cannot keep artifact {}: {err}", path.display()))?;
         Ok(true)
     }
 }
@@ -84,9 +85,7 @@ pub(crate) fn signing(root: &Path, specs: &[String]) -> Result<Artifact, String>
     }
     let signing = match found.remove("signing") {
         Some(signing) => signing,
-        None if found.is_empty() => Artifact {
-            path: root.join(".local").join("sign.pem"),
-        },
+        None if found.is_empty() => Artifact::Kept(root.join(".local").join("sign.pem")),
         None => return Err("missing artifact: signing".to_string()),
     };
     if let Some(name) = found.keys().next() {
@@ -104,18 +103,20 @@ fn parse(specs: &[String]) -> Result<BTreeMap<String, Artifact>, String> {
         if found.contains_key(name) {
             return Err(format!("duplicate artifact: {name}"));
         }
-        let path = destination
-            .strip_prefix("file:")
-            .ok_or_else(|| format!("unsupported destination for artifact: {name}"))?;
-        if path.is_empty() {
+        let held = if let Some(path) = destination.strip_prefix("file:") {
+            Artifact::Kept(PathBuf::from(path))
+        } else if let Some(seat) = destination.strip_prefix("kubernetes:") {
+            Artifact::Sealed(seat.to_string())
+        } else {
+            return Err(format!("unsupported destination for artifact: {name}"));
+        };
+        if destination
+            .split_once(':')
+            .is_none_or(|(_, rest)| rest.is_empty())
+        {
             return Err(format!("empty destination for artifact: {name}"));
         }
-        found.insert(
-            name.to_string(),
-            Artifact {
-                path: PathBuf::from(path),
-            },
-        );
+        found.insert(name.to_string(), held);
     }
     Ok(found)
 }
