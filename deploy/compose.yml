@@ -17,25 +17,13 @@ services:
       API_STORE_KIND: "pg"
       API_STORE_URL: "host=pg port=5432 user=ensign password=ensign dbname=ensign"
       API_ISS: "http://localhost:8890/api"
+    command: ["serve", "/ensign"]
+    ports:
+      - "8890:3500"
     volumes:
       - sign:/ensign/.local
     depends_on:
       pg:
         condition: service_healthy
-  web:
-    image: ensign-web:dev
-  public:
-    image: nginx:1.27-alpine
-    environment:
-      API_UPSTREAM: "api:3500"
-      WEB_UPSTREAM: "web:8080"
-      NGINX_ENVSUBST_FILTER: "API_UPSTREAM|WEB_UPSTREAM"
-    volumes:
-      - ./public.conf.template:/etc/nginx/templates/default.conf.template:ro
-    ports:
-      - "8890:80"
-    depends_on:
-      - web
-      - api
 volumes:
   sign:

@@ -8,7 +8,7 @@ const CREDS = `${Deno.env.get("HOME")}/.cargo/credentials.toml`;
 function usage(): void {
   io.print("Usage: runseal :ship");
   io.print("");
-  io.print("Build and push the ensign api+web images and the helm chart");
+  io.print("Build and push the ensign api image and the helm chart");
   io.print("to the perish registry, one version train. From a clean main.");
 }
 
@@ -34,7 +34,6 @@ const version = await current(root);
 io.print(`==> ship v${version}`);
 
 await forge("api", "deploy/api.Dockerfile", true, root, version);
-await forge("web", "deploy/web.Dockerfile", false, root, version);
 await chart(root, version);
 
 io.print("ship: clean");

@@ -2,6 +2,9 @@ api:
   image: git.perish.top/perishlab/ensign-api
   # tag defaults to Chart.appVersion; override only to pin a different image
   tag: ""
+  # A released tag is immutable, so IfNotPresent is right for delivery. Set
+  # Always while iterating on a tag whose contents move under it.
+  pullPolicy: IfNotPresent
   # Keep at 1. keel caches grant rows per engine instance, so a second
   # api pod keeps honouring a grant this one revoked until it writes.
   # Raising this needs the keel cache off first — see keel docs/run/cache.md

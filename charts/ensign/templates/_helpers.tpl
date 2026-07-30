@@ -25,10 +25,4 @@ API_STORE_URL
 {{- end -}}
 {{- end -}}
 
-{{- define "ensign.pgurl" -}}
-{{- if .Values.postgres.url -}}
-{{ .Values.postgres.url }}
-{{- else -}}
-host={{ .Release.Name }}-pg port=5432 user={{ .Values.postgres.user }} password={{ include "ensign.pgpass" . }} dbname={{ .Values.postgres.db }}
-{{- end -}}
-{{- end -}}
+

@@ -19,4 +19,6 @@ COPY deploy/keel.toml keel.toml
 RUN mkdir -p .local && chown -R ensign:ensign /ensign
 USER ensign
 EXPOSE 3500
-ENTRYPOINT ["ensign-api", "/ensign"]
+# The subcommand and its root arrive as args: bootstrap or serve.
+ENTRYPOINT ["ensign-api"]
+CMD ["serve", "/ensign"]

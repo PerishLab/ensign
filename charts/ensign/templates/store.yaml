@@ -3,10 +3,18 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: {{ .Release.Name }}-store
+  annotations:
+    # The store data outlives the release, so its credential must too.
+    "helm.sh/resource-policy": keep
 type: Opaque
 stringData:
-  # Generated once and preserved across upgrades by lookup. Never a well-known
-  # default: the store credential follows the same rule as sudo custody.
-  PGPASSWORD: {{ include "ensign.pgpass" . | quote }}
-  API_STORE_URL: {{ include "ensign.pgurl" . | quote }}
+  # One generation, two fields. Rendering the helper twice would mint two
+  # different passwords and the store would refuse its own url.
+  {{- $pass := include "ensign.pgpass" . }}
+  PGPASSWORD: {{ $pass | quote }}
+  {{- if .Values.postgres.url }}
+  API_STORE_URL: {{ .Values.postgres.url | quote }}
+  {{- else }}
+  API_STORE_URL: {{ printf "host=%s-pg port=5432 user=%s password=%s dbname=%s" .Release.Name .Values.postgres.user $pass .Values.postgres.db | quote }}
+  {{- end }}
 {{- end }}

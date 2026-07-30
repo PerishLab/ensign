@@ -18,6 +18,9 @@ rules:
       - {{ .Release.Name }}-sudo
       - {{ .Release.Name }}-signing
     verbs: ["get"]
+# One ServiceAccount covers the whole pod, so RBAC can no longer keep sudo out
+# of the serve container. That separation now rests on the binary: signing() at
+# runtime refuses a sudo artifact outright (crates/api/src/artifact/mod.rs).
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -30,32 +33,3 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: {{ .Release.Name }}-bootstrap
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: {{ .Release.Name }}-api
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: {{ .Release.Name }}-api
-rules:
-  # serve reads signing and never sudo: sudo custody stays out of the api seat.
-  - apiGroups: [""]
-    resources: ["secrets"]
-    resourceNames:
-      - {{ .Release.Name }}-signing
-    verbs: ["get"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: {{ .Release.Name }}-api
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: {{ .Release.Name }}-api
-subjects:
-  - kind: ServiceAccount
-    name: {{ .Release.Name }}-api

@@ -12,10 +12,42 @@ spec:
       labels:
         app: {{ .Release.Name }}-api
     spec:
-      serviceAccountName: {{ .Release.Name }}-api
+      serviceAccountName: {{ .Release.Name }}-bootstrap
+      # Bootstrap runs here rather than as a Job: a post-install hook cannot
+      # reach the store before serve is ready, and a pre-install hook runs
+      # before the store exists at all. The pod owns both, so the ordering is
+      # structural. Replays are safe — see crates/api/tests/bootstrap.rs.
+      initContainers:
+        - name: bootstrap
+          image: "{{ .Values.api.image }}:{{ .Values.api.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.api.pullPolicy }}
+          args:
+            - bootstrap
+            - /ensign
+            - --artifact
+            - sudo=kubernetes:{{ .Release.Name }}-sudo
+            - --artifact
+            - signing=kubernetes:{{ .Release.Name }}-signing
+          env:
+            - name: API_STORE_KIND
+              value: "pg"
+            - name: API_STORE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ensign.storeseat" . }}
+                  key: {{ include "ensign.storekey" . }}
+            {{- if .Values.issuer }}
+            - name: API_ISS
+              value: {{ .Values.issuer | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /ensign/keel.toml
+              subPath: keel.toml
       containers:
         - name: api
           image: "{{ .Values.api.image }}:{{ .Values.api.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.api.pullPolicy }}
           args:
             - serve
             - /ensign
