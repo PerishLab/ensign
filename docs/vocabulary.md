@@ -19,9 +19,13 @@
 - `spare` — a live Rescue row matching a code.
 - `shield` — the stored Pass hash for an actor.
 - `lock` / `fits` — argon2 hash / verify.
-- `sow` — seed the svc operator's ceremony grants.
-- `hail` — idempotent svc actor lookup-or-create at boot.
-- `rig` — boot ceremony: hail + gate rise + sow.
+- `sow` — explicitly seed the svc operator's ceremony grants at bootstrap.
+- `hail` — bootstrap-only canonical svc Actor lookup-or-create.
+- `berth` — the ensign service seat in the estate; holds the core for
+  `hail` / `service` / `seed` / `rig`.
+- `rig` — runtime prerequisite verification and gate construction.
+- `bootstrap` / `serve` — explicit provision operation / verify-only runtime.
+- `artifact` — named bootstrap orchestration input; custody stays caller-owned.
 - `crumb` / `wild` / `digest` — cookie read / random hex / sha256
   (gate idioms).
 - `act` — the staged scenario runner over the api binary (`:act`).
@@ -32,7 +36,7 @@
 - `link` — the `url` atom, aliased to dodge local `url` bindings.
 - `oidc` — the provider module: discovery, jwks, authorize, token,
   userinfo over the App registry.
-- `forge` — mint the ES256 signing keypair (app-owned, boot-local).
+- `forge` — mint the ES256 signing keypair during explicit bootstrap.
 - `Keys` — the signing/decoding key pair plus the public jwk.
 - `Code` — an in-process authorization code (protocol ephemera, never
   a keel row); `dance` / `attest` / `pkce` are its act helpers.
@@ -46,6 +50,5 @@
 - `tag` — id → (login, name), shared by `whoami` and `auth`.
 - `invite` — the issuance ceremony: mint a server-CSPRNG code, store
   its hash, return the code once. `face` resolves sudo or operator.
-- `keys` / `born` / `shape` — load-or-mint the signing key; `born`
-  writes the genesis PEM; `shape` derives enc/dec/jwk/kid from a secret.
+- `keys` / `born` / `shape` — runtime load / bootstrap mint / derive key views.
 - `wild` — 256-bit OS-CSPRNG bearer secret (`getrandom`).

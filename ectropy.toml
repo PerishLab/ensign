@@ -24,14 +24,6 @@ syntax = "environment"
 paths = ["apps/web/src/lib/components/**"]
 syntax = "style"
 
-[[boundary]]
-paths = [
-  "apps/web/vite.config.ts",
-  "apps/web/vitest.config.ts",
-]
-note = "vite and vitest require root-level config files; path law anchors to src and tests"
-allow = ["path"]
-
 [limit]
 block = 4
 fanout = 10

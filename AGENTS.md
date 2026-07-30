@@ -24,6 +24,15 @@ cargo fmt/clippy/test, biome/tsc/vitest, helm lint, Plumb, Ectropy, and acts.
 
 ## Product stance
 
+- Ensign closes the identity-authentication domain: enrollment, credentials,
+  sessions, recovery, API keys, OIDC, forward-auth, signing, and their
+  API/Web/CLI ceremonies live here.
+- `Operator` is the only steady-state keel seam. Ensign proves possession and
+  supplies an operator; resource shape, grants, lifecycle, transactions,
+  storage, and events remain keel vocabulary and behavior.
+- Ensign ceremonies may compose keel resource primitives, but never retell
+  grant construction or use ambient sudo for steady-state effects. Genesis
+  and identity birth are the only possession-grounded resource exceptions.
 - Auth cold start is vendor-free: **password primitive + recovery
   codes + sudo window** — the escape ladder (every layer's last exit
   depends only on lower-layer possession, never an external vendor).
@@ -35,6 +44,15 @@ cargo fmt/clippy/test, biome/tsc/vitest, helm lint, Plumb, Ectropy, and acts.
   upstream federation — permanent cuts.
 - Capability needs ride keel's gate primitives (`keel:docs/run/capability.md`
   § Gate); engine gaps become keel issues, not a local ledger.
+- The first administrator is an ordinary Actor plus an ordinary `@grant`.
+  Ensign CLI exposes the operation, but it remains a sudo-authorized keel
+  resource creation; no role field, bootstrap table, or special admin route.
+- Cold start law is under active revision and is held outside the repository
+  while it settles. The settled floor: the server image has separate
+  bootstrap and serve operations; bootstrap composes Keel hotspots and
+  caller-owned artifact destinations, while serve only verifies prerequisites.
+  Sudo and OIDC signing may share orchestration grammar but never custody,
+  mounts, access, lifecycle, or domain ownership.
 
 ## Laws
 

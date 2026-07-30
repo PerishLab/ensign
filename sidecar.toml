@@ -13,13 +13,3 @@ port = 0
 env = { KEEL_LISTEN_PORT = "{port}" }
 health_url = "http://127.0.0.1:{port}/api/health"
 ready = { role = "api" }
-
-[app]
-name = "web"
-command = "pnpm"
-args = ["--filter", "@ensign/web", "dev", "--"]
-cwd = "."
-mode = "dev"
-port = 0
-health_url = "http://127.0.0.1:{port}"
-inherits_env = [{ name = "API_URL", from = "api.endpoint" }]

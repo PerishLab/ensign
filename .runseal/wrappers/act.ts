@@ -10,7 +10,7 @@ const base = `${origin}/api`;
 function usage(): void {
   io.print("Usage: runseal :act");
   io.print("");
-  io.print("Ensign stage acts over the running binary (docs/spec.md).");
+  io.print("Ensign stage acts over the running binary.");
 }
 
 const args = cli.parse(Deno.args, { boolean: ["help", "h"] });
@@ -24,26 +24,57 @@ flags(args).positionals("act");
 const root = await bin("git").text(["rev-parse", "--show-toplevel"]);
 const dir = `${root}/.local/act`;
 await Deno.mkdir(dir, { recursive: true });
+const run = await Deno.makeTempDir({ dir, prefix: "run-" });
+const sudoPath = `${run}/sudo`;
+const signingPath = `${run}/sign.pem`;
 await Deno.writeTextFile(
-  `${dir}/keel.toml`,
-  `[listen]\nhost = "${host}"\nport = ${port}\nprefix = ""\n\n[store]\nkind = "memory"\n\n[identity]\nunit = "Actor"\n\n[cache]\nkind = "memory"\n`,
+  `${run}/keel.toml`,
+  `[listen]\nhost = "${host}"\nport = ${port}\nprefix = ""\n\n[store]\nkind = "file"\npath = "estate.db"\n\n[identity]\nunit = "Actor"\n\n[cache]\nkind = "memory"\n`,
 );
 
 io.print("==> build api");
 await bin("cargo").run(["build", "--locked"], { cwd: root });
 
-io.print(`==> boot api on ${base}`);
 const pg = Deno.env.get("API_STORE_URL");
-const env: Record<string, string> = pg
+const bootstrapEnv: Record<string, string> = pg
   ? { API_STORE_KIND: "pg", API_STORE_URL: pg, API_FRESH: "1" }
   : {};
+const serveEnv: Record<string, string> = pg ? { API_STORE_KIND: "pg", API_STORE_URL: pg } : {};
 if (pg) {
   io.print("==> store: postgres");
 }
+
+io.print("==> bootstrap api");
+await bin("cargo").run([
+  "run",
+  "--locked",
+  "-p",
+  "api",
+  "--",
+  "bootstrap",
+  run,
+  "--artifact",
+  `sudo=file:${sudoPath}`,
+  "--artifact",
+  `signing=file:${signingPath}`,
+], { cwd: root, env: bootstrapEnv });
+const sudoToken = (await Deno.readTextFile(sudoPath)).trim();
+
+io.print(`==> serve api on ${base}`);
 const child = new Deno.Command("cargo", {
-  args: ["run", "--locked", "-p", "api", "--", dir],
+  args: [
+    "run",
+    "--locked",
+    "-p",
+    "api",
+    "--",
+    "serve",
+    run,
+    "--artifact",
+    `signing=file:${signingPath}`,
+  ],
   cwd: root,
-  env,
+  env: serveEnv,
   stdin: "null",
   stdout: "null",
   stderr: "piped",
@@ -67,7 +98,7 @@ try {
       throw new Error(`root health ${bare.status}`);
     }
   });
-  const crown = { authorization: `sudo ${await sudo()}` };
+  const crown = { authorization: `sudo ${sudoToken}` };
 
   io.print("==> act 1: identity floor");
   await check("possession admits exactly once", async () => {
@@ -686,7 +717,7 @@ try {
 
   io.print("==> act 6: cli");
   const exe = `${root}/target/debug/ensign`;
-  const nest = `${dir}/cli`;
+  const nest = `${run}/cli`;
   const belt = { ENSIGN_URL: base, ENSIGN_HOME: nest };
   const pilot = await enrol(crown, "pilot");
   await grant(crown, { who: pilot.id, verb: "put", unit: "Invite", scope: "all" });
@@ -729,6 +760,76 @@ try {
     const gone = await drive(exe, ["whoami"], belt);
     if (gone.code === 0) {
       throw new Error("cli whoami survived logout");
+    }
+  });
+
+  await check("the cli redeems an invite and burns a rescue code", async () => {
+    const seat = await post("/invite", { note: "cli-join" }, crown);
+    const card = (seat.body as { code?: string }).code ?? "";
+    if (seat.status !== 201 || !card) {
+      throw new Error(`invite ${seat.status}`);
+    }
+    const nest = { ENSIGN_URL: base, ENSIGN_HOME: `${run}/cli-join` };
+    const made = await drive(exe, ["join", card, "cadet", "Cadet"], nest, "pass-cadet");
+    if (made.code !== 0 || !made.out.includes("cadet")) {
+      throw new Error(`cli join ${made.code}: ${made.err.trim()}`);
+    }
+    const first = await drive(exe, ["login", "cadet"], nest, "pass-cadet");
+    if (first.code !== 0) {
+      throw new Error(`cli login after join ${first.err.trim()}`);
+    }
+    const kept = await Deno.readTextFile(`${run}/cli-join/credential`);
+    const pat = kept.split("\n")[1] ?? "";
+    const codes = await post("/mint", {}, { authorization: `token ${pat}` });
+    const spare = ((codes.body as { codes?: string[] }).codes ?? [])[0] ?? "";
+    if (codes.status !== 201 || !spare) {
+      throw new Error(`mint ${codes.status}`);
+    }
+    const back = await drive(exe, ["recover", "cadet", spare], nest, "pass-cadet-two");
+    if (back.code !== 0) {
+      throw new Error(`cli recover ${back.code}: ${back.err.trim()}`);
+    }
+    const stale = await drive(exe, ["login", "cadet"], nest, "pass-cadet");
+    if (stale.code === 0) {
+      throw new Error("the old password still signs in after recovery");
+    }
+    const fresh = await drive(exe, ["login", "cadet"], nest, "pass-cadet-two");
+    if (fresh.code !== 0) {
+      throw new Error(`cli login after recovery ${fresh.err.trim()}`);
+    }
+    const twice = await drive(exe, ["recover", "cadet", spare], nest, "pass-cadet-three");
+    if (twice.code === 0) {
+      throw new Error("a burned rescue code recovered a second time");
+    }
+  });
+
+  await check("the cli crowns a site admin with sudo from stdin", async () => {
+    const seat = await post("/invite", { note: "cli-crown" }, crown);
+    const card = (seat.body as { code?: string }).code ?? "";
+    const nest = { ENSIGN_URL: base, ENSIGN_HOME: `${run}/cli-crown` };
+    const made = await drive(exe, ["join", card, "regent", "Regent"], nest, "pass-regent");
+    if (made.code !== 0) {
+      throw new Error(`cli join ${made.err.trim()}`);
+    }
+    const first = await drive(exe, ["login", "regent"], nest, "pass-regent");
+    if (first.code !== 0) {
+      throw new Error(`cli login ${first.err.trim()}`);
+    }
+    const before = await drive(exe, ["team", "regency"], nest);
+    if (before.code === 0) {
+      throw new Error("an ordinary actor founded a team before being crowned");
+    }
+    const wrong = await drive(exe, ["crown", "regent"], nest, "deadbeef");
+    if (wrong.code === 0) {
+      throw new Error("a bad sudo token crowned an actor");
+    }
+    const rite = await drive(exe, ["crown", "regent"], nest, sudoToken);
+    if (rite.code !== 0) {
+      throw new Error(`cli crown ${rite.code}: ${rite.err.trim()}`);
+    }
+    const after = await drive(exe, ["team", "regency"], nest);
+    if (after.code !== 0) {
+      throw new Error(`crowned actor still refused ${after.err.trim()}`);
     }
   });
 
@@ -992,17 +1093,6 @@ async function digest(code: string): Promise<string> {
   return Array.from(new Uint8Array(sum))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
-}
-
-async function sudo(): Promise<string> {
-  for (let i = 0; i < 40; i++) {
-    const hit = boot.match(/sudo token ([0-9a-f]+)/);
-    if (hit) {
-      return hit[1];
-    }
-    await sleep(250);
-  }
-  throw new Error("no sudo token in boot log");
 }
 
 async function ready(url: string, tries: number): Promise<void> {

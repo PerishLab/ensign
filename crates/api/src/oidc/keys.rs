@@ -11,41 +11,63 @@ pub(crate) struct Keys {
     pub(crate) kid: String,
 }
 
-pub(crate) fn keys(path: &Path) -> Keys {
+pub(crate) fn keys(path: &Path) -> Result<Keys, String> {
     use p256::SecretKey;
     use p256::pkcs8::DecodePrivateKey;
-    let secret = match std::fs::read_to_string(path) {
-        Ok(pem) => SecretKey::from_pkcs8_pem(&pem).expect("key pem"),
-        Err(_) => born(path),
-    };
+    let pem = std::fs::read_to_string(path)
+        .map_err(|err| format!("cannot read signing artifact {}: {err}", path.display()))?;
+    let secret = SecretKey::from_pkcs8_pem(&pem)
+        .map_err(|_| format!("malformed signing artifact {}", path.display()))?;
     shape(secret)
 }
 
-fn born(path: &Path) -> p256::SecretKey {
+pub(crate) fn provision(artifact: &crate::artifact::Artifact) -> Result<Keys, String> {
     use p256::SecretKey;
     use p256::elliptic_curve::Generate;
     use p256::pkcs8::EncodePrivateKey;
     use p256::pkcs8::LineEnding;
-    let secret = SecretKey::generate();
-    let pem = secret.to_pkcs8_pem(LineEnding::LF).expect("pkcs8");
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir).expect("key dir");
+    match keys(artifact.path()) {
+        Ok(keys) => return Ok(keys),
+        Err(_) if artifact.path().exists() => {
+            return Err(format!(
+                "signing artifact is inaccessible or malformed: {}",
+                artifact.path().display()
+            ));
+        }
+        Err(_) => {}
     }
-    std::fs::write(path, pem.as_bytes()).expect("write key");
-    eprintln!("ensign: signing key born at {}", path.display());
-    secret
+    let secret = SecretKey::generate();
+    let pem = secret
+        .to_pkcs8_pem(LineEnding::LF)
+        .map_err(|_| "cannot encode signing key".to_string())?;
+    if !artifact.keep(pem.as_bytes())? {
+        return keys(artifact.path());
+    }
+    shape(secret)
 }
 
-fn shape(secret: p256::SecretKey) -> Keys {
+fn shape(secret: p256::SecretKey) -> Result<Keys, String> {
     use p256::elliptic_curve::sec1::ToSec1Point;
     use p256::pkcs8::EncodePrivateKey;
     use p256::pkcs8::LineEnding;
-    let pem = secret.to_pkcs8_pem(LineEnding::LF).expect("pkcs8");
-    let enc = EncodingKey::from_ec_pem(pem.as_bytes()).expect("enc");
+    let pem = secret
+        .to_pkcs8_pem(LineEnding::LF)
+        .map_err(|_| "cannot encode signing key".to_string())?;
+    let enc = EncodingKey::from_ec_pem(pem.as_bytes())
+        .map_err(|_| "signing key cannot encode tokens".to_string())?;
     let point = secret.public_key().to_sec1_point(false);
-    let x = B64.encode(point.x().expect("x"));
-    let y = B64.encode(point.y().expect("y"));
-    let dec = DecodingKey::from_ec_components(&x, &y).expect("dec");
+    let x = B64.encode(
+        point
+            .x()
+            .ok_or_else(|| "signing key has no x coordinate".to_string())?,
+    );
+    let y = B64.encode(
+        point
+            .y()
+            .ok_or_else(|| "signing key has no y coordinate".to_string())?,
+    );
+    let dec = DecodingKey::from_ec_components(&x, &y)
+        .map_err(|_| "signing key cannot verify tokens".to_string())?;
     let kid = tag(&x, &y);
     let jwk = json!({
         "kty": "EC",
@@ -56,7 +78,7 @@ fn shape(secret: p256::SecretKey) -> Keys {
         "x": x,
         "y": y,
     });
-    Keys { enc, dec, jwk, kid }
+    Ok(Keys { enc, dec, jwk, kid })
 }
 
 fn tag(x: &str, y: &str) -> String {

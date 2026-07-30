@@ -3,6 +3,7 @@ use crate::util::{Sound, lock, pct, text};
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::{Extension, Json};
+use keel::serve::admit;
 use keel::{Op, Operator, Wire, form};
 use keel_gate::{bearer, crumb, digest, wild};
 use serde_json::{Map, Value, json};
@@ -13,11 +14,8 @@ pub(crate) async fn invite<W: Wire + 'static>(
     op: Option<Extension<Operator>>,
     Json(body): Json<Map<String, Value>>,
 ) -> Result<(StatusCode, Json<Value>), StatusCode> {
-    let who = op.map(|Extension(Operator(id))| id);
-    let face = booth
-        .face(&headers, who)
-        .await
-        .ok_or(StatusCode::UNAUTHORIZED)?;
+    let who = op.map(|Extension(op)| op);
+    let face = admit(&booth.core, &headers, who.as_ref(), "invite").await?;
     let note = body.get("note").and_then(Value::as_str).unwrap_or("");
     let code = wild();
     face.put("Invite", &[("hash", &digest(&code)), ("note", note)])
@@ -56,26 +54,13 @@ pub(crate) async fn join<W: Wire + 'static>(
         .batch(async |tx| {
             tx.end("Invite", card).await?;
             let key = tx
-                .put(
-                    "Actor",
-                    &[
-                        ("login", &login),
-                        ("name", &name),
-                        ("kind", "user"),
-                        ("barred", "false"),
-                    ],
-                )
+                .birth(&[
+                    ("login", &login),
+                    ("name", &name),
+                    ("kind", "user"),
+                    ("barred", "false"),
+                ])
                 .await?;
-            tx.put(
-                "@grant",
-                &[
-                    ("who", &key.to_string()),
-                    ("verb", "*"),
-                    ("unit", "Actor"),
-                    ("scope", &format!("row {key}")),
-                ],
-            )
-            .await?;
             tx.put("Pass", &[("hash", &hash), ("actor", &key.to_string())])
                 .await?;
             Ok(key)

@@ -35,6 +35,19 @@ become keel issues and registry releases, never local workarounds.
   rooted at Actor.
 - `@grant` — engine unit; all administration is six verbs on rows.
 
+## Operator seam
+
+Ensign owns the proof from possession to identity. Keel owns every resource
+effect after that proof. A successful password, session, token, recovery, or
+provider ceremony yields an Actor id and continues through `Core::of(actor)`;
+service work continues through the service operator. Sudo is used only through
+keel's genesis/identity-birth primitives.
+
+Invitation join is one transaction: consume the Invite, invoke gate's identity
+birth primitive, and create Pass. Gate owns creation of the newborn self grant;
+Ensign owns the invitation and password policy. Recovery proves the Actor with
+a Rescue possession, then re-floors that Actor through its ordinary face.
+
 ## Veil (credential units off the wire)
 
 `Pass`, `Rescue`, `Renew`, `Invite`, and gate's `Token`/`Session` are
@@ -65,12 +78,11 @@ ends a token.
 
 ## Keys (signing material)
 
-The ES256 signing key is app-owned bytes, born once at genesis and
-persisted (`<root>/.local/sign.pem`), loaded thereafter — same
-possession model as the sudo token, and it survives restart (no more
-ephemeral-per-boot keys). `kid` derives from the public key. Bearer
-secrets everywhere draw 256 bits from the OS CSPRNG (`getrandom`),
-never a hash-table hasher.
+The ES256 signing key is app-owned bytes, provisioned by explicit bootstrap
+and loaded read-only by ordinary runtime. It and sudo are both durable
+possessions but belong to different domains and custody contracts: runtime
+needs signing and must not receive sudo. `kid` derives from the public key.
+Bearer secrets draw 256 bits from OS CSPRNG (`getrandom`).
 
 ## Not rows (protocol ephemera law)
 
@@ -80,9 +92,8 @@ lease-ridden expiry; ephemera die with the process.
 
 ## Key material
 
-JWT signing keys are app-owned bytes (`.local/keys/`, k8s Secret in
-the chart) — never keel rows, mirroring the blob-plane split: keel
-holds authority, not secrets it need not read.
+JWT signing keys are app-owned bytes (local artifact or k8s Secret) — never
+Keel rows. Provision, replay, and runtime refusal follow the cold start law.
 
 ## Gaps surfaced (dream-code, 2026-07-17)
 

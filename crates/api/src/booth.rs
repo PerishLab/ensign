@@ -98,24 +98,6 @@ impl<W: Wire + 'static> Booth<W> {
         Ok(held.map(|row| row.key()))
     }
 
-    pub(crate) async fn face(
-        &self,
-        headers: &HeaderMap,
-        op: Option<i64>,
-    ) -> Option<keel::Face<'_, W>> {
-        let told = headers.get("authorization").and_then(|v| v.to_str().ok());
-        if let Some(token) = told.and_then(|v| v.strip_prefix("sudo ")) {
-            return self
-                .core
-                .seal(token)
-                .await
-                .ok()
-                .filter(|ok| *ok)
-                .map(|_| self.core.sudo());
-        }
-        op.map(|id| self.core.of(id))
-    }
-
     pub(crate) async fn crews(&self, id: i64) -> Result<Vec<String>, keel::adapt::Error> {
         let ask = form("Team").when("members", Op::Has, &id.to_string());
         let pack = self.core.of(self.svc).ask(&ask).await?;
@@ -146,7 +128,7 @@ impl<W: Wire + 'static> Booth<W> {
     pub(crate) async fn recover(&self, key: i64, hash: &str) -> Result<(), keel::adapt::Error> {
         let hash = hash.to_string();
         self.core
-            .sudo()
+            .of(key)
             .batch(async |tx| {
                 let ask = form("Pass").when("actor", Op::Eq, &key.to_string());
                 let held = tx.ask(&ask).await?;

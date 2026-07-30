@@ -5,7 +5,7 @@ mod plain;
 
 use flow::{authorize, disco, jwks, token, userinfo};
 
-pub(crate) use keys::{Keys, keys};
+pub(crate) use keys::{Keys, keys, provision};
 
 use crate::util::{Sound, pct};
 use axum::Json;

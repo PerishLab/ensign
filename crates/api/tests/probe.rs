@@ -3,7 +3,7 @@ use axum::http::StatusCode;
 use keel::adapt::Error;
 use keel::adapt::db::Sqlite;
 use keel::ddl::Grain;
-use keel::{Val, Wire, bind};
+use keel::{Core, Op, Val, Wire, form};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -47,20 +47,36 @@ impl Wire for Faint {
     }
 }
 
-async fn rig() -> (Booth<Faint>, Arc<AtomicBool>) {
+async fn core() -> (Arc<Core<Faint>>, Arc<AtomicBool>) {
     let live = Arc::new(AtomicBool::new(true));
     let real = Sqlite::memory().await.expect("db");
     let wire = Faint {
         real,
         live: live.clone(),
     };
-    let core = bind(api::shape(), wire)
+    let mut estate = keel::bootstrap(api::shape(), wire).expect("bootstrap");
+    let sudo = estate.mint().await.expect("mint");
+    let core = estate
+        .seal(&sudo)
         .await
-        .expect("bind")
+        .expect("seal")
         .identify("Actor")
         .expect("identify")
         .share();
-    let (gate, svc) = api::rig(&core).await.expect("rig");
+    (core, live)
+}
+
+async fn rig() -> (Booth<Faint>, Arc<AtomicBool>) {
+    let (core, live) = core().await;
+    assert!(api::Berth(&core).rig().await.is_err());
+    assert!(
+        core.one(&form("Actor").when("login", Op::Eq, "ensign"))
+            .await
+            .expect("service query")
+            .is_none()
+    );
+    api::Berth(&core).seed().await.expect("seed");
+    let (gate, svc) = api::Berth(&core).rig().await.expect("rig");
     let booth = Booth::new(core, gate.clone(), svc, false);
     let key = gate
         .birth(&[
@@ -74,6 +90,36 @@ async fn rig() -> (Booth<Faint>, Arc<AtomicBool>) {
     let hash = lock("seaworthy").expect("hash");
     booth.shield(key, &hash).await.expect("pass");
     (booth, live)
+}
+
+#[tokio::test]
+async fn frozen() {
+    let (core, _live) = core().await;
+    api::Berth(&core).seed().await.expect("seed");
+    let ask = form("@grant")
+        .when("who", Op::Eq, "all")
+        .when("verb", Op::Eq, "see")
+        .when("unit", Op::Eq, "Actor")
+        .when("scope", Op::Eq, "all");
+    let grant = core
+        .sudo()
+        .one(&ask)
+        .await
+        .expect("grant query")
+        .expect("grant");
+    core.sudo()
+        .end("@grant", grant.key())
+        .await
+        .expect("remove grant");
+
+    assert!(api::Berth(&core).rig().await.is_err());
+    assert!(
+        core.sudo()
+            .one(&ask)
+            .await
+            .expect("grant recheck")
+            .is_none()
+    );
 }
 
 #[tokio::test]
