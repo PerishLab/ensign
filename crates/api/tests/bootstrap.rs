@@ -183,3 +183,52 @@ fn contended() {
         "sudo custody is not one 64-hex token"
     );
 }
+
+fn runtime(root: &Path, sudo: &Path, signing: &Path) -> Child {
+    Command::new(env!("CARGO_BIN_EXE_api"))
+        .arg("serve")
+        .arg(root)
+        .arg("--artifact")
+        .arg(format!("sudo=file:{}", sudo.display()))
+        .arg("--artifact")
+        .arg(format!("signing=file:{}", signing.display()))
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("serve process")
+}
+
+fn reap(mut child: Child) -> Output {
+    for _ in 0..100 {
+        if child.try_wait().expect("wait").is_some() {
+            return child.wait_with_output().expect("output");
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+    panic!("serve kept listening while holding a sudo artifact")
+}
+
+#[test]
+fn forbidden() {
+    let nest = Nest::new();
+    let sudo = nest.path("sudo");
+    let signing = nest.path("sign.pem");
+    let sealed = bootstrap(&nest.0, &sudo, &signing);
+    assert!(
+        sealed.status.success(),
+        "the estate this test serves from was never sealed: {}",
+        String::from_utf8_lossy(&sealed.stderr)
+    );
+    let out = reap(runtime(&nest.0, &sudo, &signing));
+    assert!(
+        !out.status.success(),
+        "serve accepted a sudo artifact; the pod's own binary is the only seat left that separates custody from runtime"
+    );
+    let note = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        note.contains("sudo artifact is forbidden at runtime"),
+        "serve exited for the wrong reason: {note}"
+    );
+}
