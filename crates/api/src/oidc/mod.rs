@@ -1,9 +1,11 @@
+mod bear;
 mod flow;
 mod issue;
 mod keys;
 mod name;
 mod plain;
 
+pub(crate) use bear::{Bearing, Code, Ward};
 use flow::{authorize, disco, jwks, token, userinfo};
 
 pub(crate) use keys::{Keys, keys, provision};
@@ -27,16 +29,6 @@ use std::sync::{Arc, Mutex};
 pub(crate) const LIFE: i64 = 60 * 60;
 pub(crate) const GRACE: i64 = 60;
 pub(crate) const RENEW: i64 = 60 * 60 * 24 * 30;
-
-pub(crate) struct Code {
-    actor: i64,
-    client: String,
-    redirect: String,
-    challenge: String,
-    scope: String,
-    nonce: Option<String>,
-    dies: i64,
-}
 
 pub(crate) struct Oidc<W: Wire> {
     pub(crate) core: Arc<Core<W>>,
@@ -95,15 +87,23 @@ impl<W: Wire + 'static> Oidc<W> {
         if !safe(&ask.redirect) {
             return StatusCode::BAD_REQUEST.into_response();
         }
+        let audience = match self.heard(&ask.resource).await {
+            Ok(Some(audience)) => audience,
+            Ok(None) => return StatusCode::BAD_REQUEST.into_response(),
+            Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        };
         let grant = wild();
         self.codes.lock().expect("codes").insert(
             grant.clone(),
             Code {
-                actor,
-                client: ask.client,
+                bearing: Bearing {
+                    actor,
+                    client: ask.client,
+                    scope: ask.scope,
+                    audience,
+                },
                 redirect: ask.redirect.clone(),
                 challenge: ask.challenge,
-                scope: ask.scope,
                 nonce: ask.nonce,
                 dies: tick() + GRACE,
             },
@@ -207,9 +207,12 @@ impl<W: Wire + 'static> Oidc<W> {
         };
         Ok(Some(Ward {
             row: row.key(),
-            actor,
-            slug,
-            scope: row.text("scope").unwrap_or_default().to_string(),
+            bearing: Bearing {
+                actor,
+                client: slug,
+                scope: row.text("scope").unwrap_or_default().to_string(),
+                audience: row.text("audience").unwrap_or_default().to_string(),
+            },
         }))
     }
 }
@@ -240,6 +243,8 @@ pub(crate) struct Ask {
     challenge: String,
     #[serde(rename = "code_challenge_method")]
     method: String,
+    #[serde(default)]
+    resource: String,
     nonce: Option<String>,
 }
 
@@ -264,13 +269,6 @@ pub(crate) struct Who {
     login: String,
     name: String,
     teams: Vec<String>,
-}
-
-pub(crate) struct Ward {
-    row: i64,
-    actor: i64,
-    slug: String,
-    scope: String,
 }
 
 #[derive(Serialize)]

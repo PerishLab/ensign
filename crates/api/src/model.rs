@@ -88,6 +88,8 @@ pub(crate) struct Renew {
     slug: string,
     #[field(string)]
     scope: string,
+    #[field(string)]
+    audience: string,
     #[relation(Actor, many2one, root)]
     actor: Actor,
 }

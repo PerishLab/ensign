@@ -1,5 +1,5 @@
 use crate::oidc::plain::{seal, sour, spoil};
-use crate::oidc::{Claims, Grant, Grip, LIFE, Oidc, RENEW, Ticket};
+use crate::oidc::{Bearing, Claims, Grant, Grip, LIFE, Oidc, RENEW, Ticket};
 use axum::Json;
 use jsonwebtoken::{Algorithm, Header, encode};
 use keel::Wire;
@@ -15,7 +15,7 @@ impl<W: Wire + 'static> Oidc<W> {
         if code.dies < tick() {
             return Err(sour("invalid_grant"));
         }
-        if grant.client.as_deref() != Some(&code.client)
+        if grant.client.as_deref() != Some(&code.bearing.client)
             || grant.redirect.as_deref() != Some(&code.redirect)
         {
             return Err(sour("invalid_grant"));
@@ -24,8 +24,7 @@ impl<W: Wire + 'static> Oidc<W> {
         if seal(&verifier) != code.challenge {
             return Err(sour("invalid_grant"));
         }
-        self.grip(code.actor, &code.client, &code.scope, code.nonce)
-            .await
+        self.grip(&code.bearing, code.nonce).await
     }
 
     pub(crate) async fn renew(&self, grant: Grant) -> Grip {
@@ -35,11 +34,14 @@ impl<W: Wire + 'static> Oidc<W> {
             .await
             .map_err(|_| spoil())?
             .ok_or_else(|| sour("invalid_grant"))?;
-        if grant.client.as_deref() != Some(&ward.slug) {
+        if grant.client.as_deref() != Some(&ward.bearing.client) {
             return Err(sour("invalid_grant"));
         }
-        let lives = self.alive(ward.actor).await.map_err(|_| spoil())?;
-        let known = self.client(&ward.slug).await.map_err(|_| spoil())?;
+        let lives = self.alive(ward.bearing.actor).await.map_err(|_| spoil())?;
+        let known = self
+            .client(&ward.bearing.client)
+            .await
+            .map_err(|_| spoil())?;
         if !lives || known.is_none() {
             return Err(sour("invalid_grant"));
         }
@@ -48,10 +50,13 @@ impl<W: Wire + 'static> Oidc<W> {
             .end("Renew", ward.row)
             .await
             .map_err(|_| spoil())?;
-        self.grip(ward.actor, &ward.slug, &ward.scope, None).await
+        self.grip(&ward.bearing, None).await
     }
 
-    async fn grip(&self, actor: i64, client: &str, scope: &str, nonce: Option<String>) -> Grip {
+    async fn grip(&self, bearing: &Bearing, nonce: Option<String>) -> Grip {
+        let actor = bearing.actor;
+        let client = bearing.client.as_str();
+        let scope = bearing.scope.as_str();
         let who = self
             .person(actor)
             .await
@@ -77,18 +82,16 @@ impl<W: Wire + 'static> Oidc<W> {
         let reach = self
             .sign(&Ticket {
                 sub,
-                aud: self.iss.clone(),
+                aud: bearing.audience.clone(),
                 kind: "access",
                 scope: scope.to_string(),
                 nonce: None,
-                wide: false,
+                wide,
                 who: &who,
             })
             .map_err(|_| spoil())?;
         let fresh = wild();
-        self.mint(actor, client, scope, &fresh)
-            .await
-            .map_err(|_| spoil())?;
+        self.mint(bearing, &fresh).await.map_err(|_| spoil())?;
         Ok(Json(json!({
             "access_token": reach,
             "id_token": id,
@@ -99,22 +102,17 @@ impl<W: Wire + 'static> Oidc<W> {
         })))
     }
 
-    async fn mint(
-        &self,
-        actor: i64,
-        client: &str,
-        scope: &str,
-        token: &str,
-    ) -> Result<(), keel::adapt::Error> {
+    async fn mint(&self, bearing: &Bearing, token: &str) -> Result<(), keel::adapt::Error> {
         let face = self.core.of(self.svc);
         let row = face
             .put(
                 "Renew",
                 &[
                     ("hash", &seal(token)),
-                    ("slug", client),
-                    ("scope", scope),
-                    ("actor", &actor.to_string()),
+                    ("slug", &bearing.client),
+                    ("scope", &bearing.scope),
+                    ("audience", &bearing.audience),
+                    ("actor", &bearing.actor.to_string()),
                 ],
             )
             .await?;
