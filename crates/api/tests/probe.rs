@@ -70,25 +70,38 @@ async fn rig() -> (Booth<Faint>, Arc<AtomicBool>) {
     let (core, live) = core().await;
     assert!(api::Berth(&core).rig().await.is_err());
     assert!(
-        core.one(&form("Actor").when("login", Op::Eq, "ensign"))
+        core.one(&form("Actor").when("sub", Op::Eq, "ensign"))
             .await
             .expect("service query")
             .is_none()
     );
     api::Berth(&core).seed().await.expect("seed");
     let (gate, svc) = api::Berth(&core).rig().await.expect("rig");
-    let booth = Booth::new(core, gate.clone(), svc, false);
+    let booth = Booth::new(core.clone(), gate.clone(), svc, false);
     let key = gate
         .birth(&[
-            ("login", "ada"),
-            ("name", "Ada"),
+            ("sub", "ada-subject"),
             ("kind", "user"),
             ("barred", "false"),
         ])
         .await
         .expect("ada");
+    let seat = key.to_string();
+    core.put(
+        "Profile",
+        &[("handle", "ada"), ("name", "Ada"), ("actor", &seat)],
+    )
+    .await
+    .expect("profile");
+    let source = core
+        .put(
+            "Source",
+            &[("kind", "pass"), ("handle", "ada"), ("actor", &seat)],
+        )
+        .await
+        .expect("source");
     let hash = lock("seaworthy").expect("hash");
-    booth.shield(key, &hash).await.expect("pass");
+    booth.shield(key, source, &hash).await.expect("pass");
     (booth, live)
 }
 

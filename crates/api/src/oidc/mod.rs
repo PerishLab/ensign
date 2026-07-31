@@ -1,6 +1,7 @@
 mod flow;
 mod issue;
 mod keys;
+mod name;
 mod plain;
 
 use flow::{authorize, disco, jwks, token, userinfo};
@@ -136,7 +137,11 @@ impl<W: Wire + 'static> Oidc<W> {
             return Err(StatusCode::UNAUTHORIZED);
         }
         let sub = claims.get("sub").and_then(Value::as_str).unwrap_or("");
-        let id: i64 = sub.parse().map_err(|_| StatusCode::UNAUTHORIZED)?;
+        let id = self
+            .named(sub)
+            .await
+            .sound()?
+            .ok_or(StatusCode::UNAUTHORIZED)?;
         let who = self
             .person(id)
             .await
@@ -158,12 +163,12 @@ impl<W: Wire + 'static> Oidc<W> {
     }
 
     async fn person(&self, id: i64) -> Result<Option<Who>, keel::adapt::Error> {
-        let ask = form("Actor").when("id", Op::Eq, &id.to_string());
+        let ask = form("Profile").when("actor", Op::Eq, &id.to_string());
         let held = self.core.of(self.svc).one(&ask).await?;
         let Some(row) = held else {
             return Ok(None);
         };
-        let Some(login) = row.text("login").map(str::to_string) else {
+        let Some(login) = row.text("handle").map(str::to_string) else {
             return Ok(None);
         };
         Ok(Some(Who {

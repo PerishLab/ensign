@@ -440,8 +440,17 @@ try {
     if (claims.iss !== base || claims.aud !== "portal") {
       throw new Error(`claims ${JSON.stringify(claims)}`);
     }
-    if (claims.sub !== String(sailor.id) || claims.login !== "sailor") {
+    const sub = claims.sub as string;
+    if (!sub || sub === String(sailor.id) || claims.login !== "sailor") {
       throw new Error(`subject ${JSON.stringify(claims)}`);
+    }
+    const shown = await get(`/profile/${sub}`, {});
+    const face = shown.body as { handle?: string; teams?: unknown };
+    if (shown.status !== 200 || face.handle !== "sailor") {
+      throw new Error(`profile ${shown.status} ${JSON.stringify(face)}`);
+    }
+    if (face.teams !== undefined) {
+      throw new Error("the anonymous profile face leaked teams");
     }
     if (claims.nonce !== "salt" || claims.kind !== "id") {
       throw new Error(`nonce/kind ${JSON.stringify(claims)}`);
@@ -475,7 +484,7 @@ try {
       authorization: `Bearer ${bag.access_token}`,
     });
     const face = seen.body as { sub?: string; login?: string };
-    if (face.sub !== String(sailor.id) || face.login !== undefined) {
+    if (!face.sub || face.sub === String(sailor.id) || face.login !== undefined) {
       throw new Error(`scope leaked profile ${JSON.stringify(face)}`);
     }
   });

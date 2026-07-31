@@ -1,6 +1,8 @@
 use crate::artifact::{self, Artifact};
 use crate::config::{self, Hold, Kind, Runtime};
-use crate::door::{auth, invite, join, login, logout, mint, repass, revive, token, untoken, who};
+use crate::door::{
+    auth, invite, join, known, login, logout, mint, repass, revive, shown, token, untoken, who,
+};
 use crate::{Berth, Booth, oidc, shape};
 use axum::Router;
 use axum::routing::{get, post};
@@ -176,6 +178,8 @@ async fn listen<W: Wire + 'static>(core: Arc<Core<W>>, runtime: &Runtime, signin
         .route("/login", post(login::<W>))
         .route("/logout", post(logout::<W>))
         .route("/whoami", get(who::<W>))
+        .route("/profile/{sub}", get(shown::<W>))
+        .route("/handle/{handle}", get(known::<W>))
         .route("/auth", get(auth::<W>))
         .route("/mint", post(mint::<W>))
         .route("/repass", post(repass::<W>))

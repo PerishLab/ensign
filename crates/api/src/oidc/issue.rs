@@ -57,7 +57,11 @@ impl<W: Wire + 'static> Oidc<W> {
             .await
             .map_err(|_| spoil())?
             .ok_or_else(spoil)?;
-        let sub = actor.to_string();
+        let sub = self
+            .subject(actor)
+            .await
+            .map_err(|_| spoil())?
+            .ok_or_else(spoil)?;
         let wide = scope.split_whitespace().any(|word| word == "profile");
         let id = self
             .sign(&Ticket {

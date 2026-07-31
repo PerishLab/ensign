@@ -1,4 +1,8 @@
-use crate::booth::Booth;
+mod face;
+
+pub(crate) use face::{known, shown};
+
+use crate::booth::{Booth, PASS};
 use crate::util::{Sound, lock, pct, text};
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
@@ -40,7 +44,7 @@ pub(crate) async fn join<W: Wire + 'static>(
         .await
         .sound()?
         .ok_or(StatusCode::NOT_FOUND)?;
-    let taken = booth.actor(&login).await.sound()?;
+    let taken = booth.source(&login).await.sound()?;
     if taken.is_some() {
         return Err(StatusCode::CONFLICT);
     }
@@ -54,14 +58,21 @@ pub(crate) async fn join<W: Wire + 'static>(
         .batch(async |tx| {
             tx.end("Invite", card).await?;
             let key = tx
-                .birth(&[
-                    ("login", &login),
-                    ("name", &name),
-                    ("kind", "user"),
-                    ("barred", "false"),
-                ])
+                .birth(&[("sub", &wild()), ("kind", "user"), ("barred", "false")])
                 .await?;
-            tx.put("Pass", &[("hash", &hash), ("actor", &key.to_string())])
+            let seat = key.to_string();
+            tx.put(
+                "Profile",
+                &[("handle", &login), ("name", &name), ("actor", &seat)],
+            )
+            .await?;
+            let source = tx
+                .put(
+                    "Source",
+                    &[("kind", PASS), ("handle", &login), ("actor", &seat)],
+                )
+                .await?;
+            tx.put("Pass", &[("hash", &hash), ("source", &source.to_string())])
                 .await?;
             Ok(key)
         })
@@ -205,7 +216,8 @@ pub(crate) async fn repass<W: Wire + 'static>(
     if pass.chars().count() < 8 {
         return Err(StatusCode::BAD_REQUEST);
     }
-    let held = match booth.guard(me).await {
+    let seat = booth.seat(me).await.sound()?.ok_or(StatusCode::FORBIDDEN)?;
+    let held = match booth.guard(seat).await {
         Ok(Some(held)) => held,
         Ok(None) => return Err(StatusCode::FORBIDDEN),
         Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
@@ -220,7 +232,7 @@ pub(crate) async fn repass<W: Wire + 'static>(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    booth.shield(me, &hash).await.sound()?;
+    booth.shield(me, seat, &hash).await.sound()?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -234,8 +246,13 @@ pub(crate) async fn revive<W: Wire + 'static>(
     if pass.chars().count() < 8 {
         return Err(StatusCode::BAD_REQUEST);
     }
+    let seat = booth
+        .source(&login)
+        .await
+        .sound()?
+        .ok_or(StatusCode::UNAUTHORIZED)?;
     let key = booth
-        .actor(&login)
+        .owner(seat)
         .await
         .sound()?
         .ok_or(StatusCode::UNAUTHORIZED)?;
@@ -255,7 +272,7 @@ pub(crate) async fn revive<W: Wire + 'static>(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    if booth.recover(key, &hash).await.is_err() {
+    if booth.recover(key, seat, &hash).await.is_err() {
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
     Ok(StatusCode::NO_CONTENT)

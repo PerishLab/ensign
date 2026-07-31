@@ -5,9 +5,7 @@ use keel::resource;
 #[resource]
 pub(crate) struct Actor {
     #[field(string, unique)]
-    login: string,
-    #[field(string)]
-    name: string,
+    sub: string,
     #[field(string)]
     kind: string,
     #[field(bool)]
@@ -15,11 +13,31 @@ pub(crate) struct Actor {
 }
 
 #[resource(veil)]
+pub(crate) struct Profile {
+    #[field(string, unique)]
+    handle: string,
+    #[field(string)]
+    name: string,
+    #[relation(Actor, one2one, root)]
+    actor: Actor,
+}
+
+#[resource(veil)]
+pub(crate) struct Source {
+    #[field(string)]
+    kind: string,
+    #[field(string, unique = kind)]
+    handle: string,
+    #[relation(Actor, many2one, root)]
+    actor: Actor,
+}
+
+#[resource(veil)]
 pub(crate) struct Pass {
     #[field(string)]
     hash: string,
-    #[relation(Actor, one2one, root)]
-    actor: Actor,
+    #[relation(Source, one2one, root)]
+    source: Source,
 }
 
 #[resource(veil)]

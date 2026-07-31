@@ -11,15 +11,17 @@ pub use booth::Booth;
 pub use startup::{bootstrap, serve};
 pub use util::lock;
 
+use crate::model::{Actor, App, Invite, Pass, Profile, Renew, Rescue, Source, Team, plug};
 use keel::{Core, Graph, Op, Wire, form};
 use keel_gate::Gate;
-use model::{Actor, App, Invite, Pass, Renew, Rescue, Team, plug};
 use std::sync::Arc;
 
 pub fn shape() -> Graph {
     let mut graph = Graph::new();
     graph
         .plug::<Actor>()
+        .plug::<Profile>()
+        .plug::<Source>()
         .plug::<Pass>()
         .plug::<Invite>()
         .plug::<Rescue>()
@@ -64,19 +66,14 @@ impl<W: Wire + 'static> Berth<'_, W> {
     async fn hail(&self) -> Result<i64, keel::adapt::Error> {
         let core = self.0;
         let held = core
-            .one(&form("Actor").when("login", Op::Eq, "ensign"))
+            .one(&form("Actor").when("sub", Op::Eq, SERVICE))
             .await?;
         match held {
             Some(row) => canonical(&row).map(|()| row.key()),
             None => {
                 core.put(
                     "Actor",
-                    &[
-                        ("login", "ensign"),
-                        ("name", "ensign"),
-                        ("kind", "svc"),
-                        ("barred", "false"),
-                    ],
+                    &[("sub", SERVICE), ("kind", "svc"), ("barred", "false")],
                 )
                 .await
             }
@@ -86,7 +83,7 @@ impl<W: Wire + 'static> Berth<'_, W> {
     async fn service(&self) -> Result<i64, keel::adapt::Error> {
         let core = self.0;
         let held = core
-            .one(&form("Actor").when("login", Op::Eq, "ensign"))
+            .one(&form("Actor").when("sub", Op::Eq, SERVICE))
             .await?;
         let row = held.ok_or_else(|| {
             keel::adapt::Error::Adapt("missing canonical ensign service Actor".into())
@@ -96,9 +93,14 @@ impl<W: Wire + 'static> Berth<'_, W> {
     }
 }
 
-fn seeds(who: &str) -> [(&str, &str, &str, &str); 12] {
+pub(crate) const SERVICE: &str = "ensign";
+
+fn seeds(who: &str) -> [(&str, &str, &str, &str); 15] {
     [
         ("all", "see", "Actor", "all"),
+        (who, "see", "Profile", "all"),
+        (who, "put", "Profile", "all"),
+        (who, "see", "Source", "all"),
         ("all", "see", "Team", "all"),
         ("all", "see", "App", "all"),
         (who, "see", "Invite", "all"),
@@ -114,7 +116,7 @@ fn seeds(who: &str) -> [(&str, &str, &str, &str); 12] {
 }
 
 fn canonical(row: &keel::Row) -> Result<(), keel::adapt::Error> {
-    if row.text("name") == Some("ensign")
+    if row.text("sub") == Some(SERVICE)
         && row.text("kind") == Some("svc")
         && row.flag("barred") == Some(false)
     {

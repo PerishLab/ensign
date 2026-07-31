@@ -49,11 +49,11 @@ fn ambient() {
     let hits = bearing(".sudo()");
     let allowed: Vec<&String> = hits
         .iter()
-        .filter(|path| path.ends_with("api/src/door.rs"))
+        .filter(|path| path.ends_with("api/src/door/mod.rs"))
         .collect();
     assert_eq!(
         hits.len(),
         allowed.len(),
-        "ambient sudo is admitted only for identity birth in door.rs: {hits:?}"
+        "ambient sudo is admitted only for identity birth in door/mod.rs: {hits:?}"
     );
 }

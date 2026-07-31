@@ -121,19 +121,17 @@ impl Rest<'_> {
             return Err("crown reads the sudo token from stdin".into());
         }
         let worn = format!("sudo {sudo}");
-        let (code, body) = send("GET", &format!("{base}/Actor"), Some(&worn), None)?;
-        if code != 200 {
-            return Err(fault("read actors", code));
+        let (code, body) = send("GET", &format!("{base}/handle/{who}"), Some(&worn), None)?;
+        if code == 404 {
+            return Err(format!("unknown handle: {who}"));
         }
-        let rows = body.as_array().ok_or("expected a list")?;
-        let seat = rows
-            .iter()
-            .find(|row| field(row, "login") == *who)
-            .ok_or_else(|| format!("unknown login: {who}"))?;
-        let id = seat
+        if code != 200 {
+            return Err(fault("resolve handle", code));
+        }
+        let id = body
             .get("id")
             .and_then(Value::as_i64)
-            .ok_or("actor has no id")?;
+            .ok_or("handle has no actor")?;
         let (made, _) = send(
             "POST",
             &format!("{base}/@grant"),
