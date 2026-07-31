@@ -13,9 +13,8 @@ impl Nest {
             std::env::temp_dir().join(format!("ensign-bootstrap-{}-{serial}", std::process::id()));
         std::fs::create_dir(&path).expect("temp nest");
         std::fs::write(
-            path.join("keel.toml"),
-            "[store]\nkind = \"file\"\npath = \"estate.db\"\n\n\
-             [identity]\nunit = \"Actor\"\n",
+            path.join("ensign.toml"),
+            "[store]\nkind = \"file\"\npath = \"estate.db\"\n",
         )
         .expect("config");
         Self(path)

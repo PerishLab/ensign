@@ -18,6 +18,15 @@ await bin("cargo").run([
 io.print("==> cargo test");
 await bin("cargo").run(["test", "--locked", "--workspace"]);
 
+io.print("==> cargo release");
+await bin("cargo").run([
+  "check",
+  "--locked",
+  "--workspace",
+  "--all-targets",
+  "--release",
+]);
+
 io.print("==> helm lint");
 const helm = (Deno.env.get("PATH") ?? "").split(":").some((dir) => {
   try {

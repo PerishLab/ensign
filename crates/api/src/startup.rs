@@ -1,11 +1,12 @@
 use crate::artifact::{self, Artifact};
-use crate::config::{self, Kind};
+use crate::config::{self, Hold, Kind, Runtime};
 use crate::door::{auth, invite, join, login, logout, mint, repass, revive, token, untoken, who};
 use crate::{Berth, Booth, oidc, shape};
 use axum::Router;
 use axum::routing::{get, post};
 use keel::adapt::db::Sqlite;
-use keel::{Core, Status, Wire, app, bind, config as keel_config};
+use keel::adapt::pg::Postgres;
+use keel::{Core, Status, Wire, app, bind};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -16,44 +17,22 @@ pub async fn bootstrap(root: &str, specs: &[String]) {
         Ok(runtime) => runtime,
         Err(err) => halt("config", &err.to_string()),
     };
-    let (_, home) = match keel_config::load(Path::new(root)) {
-        Ok(found) => found,
-        Err(err) => halt("config", &err.to_string()),
-    };
     let artifacts = match artifact::bootstrap(specs) {
         Ok(artifacts) => artifacts,
         Err(err) => halt("artifact", &err),
     };
     match runtime.store.kind {
         Kind::Pg => {
-            let held = keel::adapt::pg::Store {
-                url: runtime.store.url.clone(),
-            };
-            let mut store = match held.open().await {
-                Ok(store) => store,
-                Err(err) => halt("pg", &err.to_string()),
-            };
-            if runtime.fresh
-                && let Err(err) = store.wipe().await
-            {
-                halt("fresh", &err.to_string());
-            }
+            let store = open(&runtime).await;
             if let Err(err) = provision(store, &artifacts).await {
                 halt("bootstrap", &err);
             }
         }
         Kind::File => {
-            let held = keel::adapt::db::Store {
-                kind: keel::adapt::db::Kind::File,
-                path: runtime.store.path.clone(),
-            };
-            let store = match held.open(&home).await {
-                Ok(store) => store,
-                Err(err) => halt("store", &err.to_string()),
-            };
             if runtime.fresh {
                 halt("fresh", "file store wipe is not supported");
             }
+            let store = file(root, &runtime).await;
             if let Err(err) = provision(store, &artifacts).await {
                 halt("bootstrap", &err);
             }
@@ -70,46 +49,53 @@ pub async fn serve(root: &str, specs: &[String]) {
     if runtime.fresh {
         halt("fresh", "wipe is allowed only during explicit bootstrap");
     }
-    let (cfg, home) = match keel_config::load(Path::new(root)) {
-        Ok(found) => found,
-        Err(err) => halt("config", &err.to_string()),
-    };
     let signing = match artifact::signing(Path::new(root), specs) {
         Ok(signing) => signing,
         Err(err) => halt("artifact", &err),
     };
     match runtime.store.kind {
         Kind::Pg => {
-            let held = keel::adapt::pg::Store {
-                url: runtime.store.url.clone(),
-            };
-            let store = match held.open().await {
-                Ok(store) => store,
-                Err(err) => halt("pg", &err.to_string()),
-            };
-            let core = raise(bind(shape(), store).await, &cfg);
-            listen(core, &cfg, &signing, &runtime.iss).await;
+            let held = bind(shape(), open(&runtime).await).await;
+            listen(raise(held, &runtime), &runtime, &signing).await;
         }
         Kind::File => {
-            let held = keel::adapt::db::Store {
-                kind: keel::adapt::db::Kind::File,
-                path: runtime.store.path.clone(),
-            };
-            let store = match held.open(&home).await {
-                Ok(store) => store,
-                Err(err) => halt("store", &err.to_string()),
-            };
-            let core = raise(bind(shape(), store).await, &cfg);
-            listen(core, &cfg, &signing, &runtime.iss).await;
+            let held = bind(shape(), file(root, &runtime).await).await;
+            listen(raise(held, &runtime), &runtime, &signing).await;
         }
         Kind::Memory => {
             let store = match Sqlite::memory().await {
                 Ok(store) => store,
                 Err(err) => halt("store", &err.to_string()),
             };
-            let core = raise(bind(shape(), store).await, &cfg);
-            listen(core, &cfg, &signing, &runtime.iss).await;
+            let held = bind(shape(), store).await;
+            listen(raise(held, &runtime), &runtime, &signing).await;
         }
+    }
+}
+
+async fn open(runtime: &Runtime) -> Postgres {
+    let mut store = match Postgres::at(&runtime.store.url).await {
+        Ok(store) => store,
+        Err(err) => halt("pg", &err.to_string()),
+    };
+    if runtime.fresh
+        && let Err(err) = store.wipe().await
+    {
+        halt("fresh", &err.to_string());
+    }
+    store
+}
+
+async fn file(root: &str, runtime: &Runtime) -> Sqlite {
+    let path = plumb::config::rebase(Path::new(&runtime.store.path), Path::new(root));
+    if let Some(parent) = path.parent()
+        && let Err(err) = std::fs::create_dir_all(parent)
+    {
+        halt("store", &err.to_string());
+    }
+    match Sqlite::file(&path).await {
+        Ok(store) => store,
+        Err(err) => halt("store", &err.to_string()),
     }
 }
 
@@ -159,33 +145,29 @@ fn custody(bytes: &[u8]) -> Result<String, String> {
 
 fn raise<W: Wire + 'static>(
     made: Result<Core<W>, keel::adapt::Error>,
-    cfg: &keel_config::Config,
+    runtime: &Runtime,
 ) -> Arc<Core<W>> {
     let built = made
-        .and_then(|core| core.identify("Actor"))
-        .map(|core| match cfg.cache.kind {
-            keel_config::Hold::Memory => core,
-            keel_config::Hold::None => core.bare(),
-        });
+        .map(|core| match runtime.cache.kind {
+            Hold::Memory => core,
+            Hold::None => core.bare(),
+        })
+        .and_then(|core| core.identify("Actor"));
     match built {
         Ok(core) => core.share(),
         Err(err) => halt("bind", &err.to_string()),
     }
 }
 
-async fn listen<W: Wire + 'static>(
-    core: Arc<Core<W>>,
-    cfg: &keel_config::Config,
-    signing: &Artifact,
-    issuer: &str,
-) {
+async fn listen<W: Wire + 'static>(core: Arc<Core<W>>, runtime: &Runtime, signing: &Artifact) {
     let (door, svc) = match Berth(&core).rig().await {
         Ok(pair) => pair,
         Err(err) => halt("rise", &err.to_string()),
     };
-    let iss = match issuer.is_empty() {
-        true => format!("http://{}:{}{PREFIX}", cfg.listen.host, cfg.listen.port),
-        false => issuer.trim_end_matches('/').to_string(),
+    let seat = &runtime.listen;
+    let iss = match runtime.iss.is_empty() {
+        true => format!("http://{}:{}{PREFIX}", seat.host, seat.port),
+        false => runtime.iss.trim_end_matches('/').to_string(),
     };
     let booth = Booth::new(core.clone(), door.clone(), svc, iss.starts_with("https://"));
     let plate = Router::new()
@@ -205,11 +187,9 @@ async fn listen<W: Wire + 'static>(
         Err(err) => halt("signing", &err),
     };
     let flags = oidc::Oidc::new(core.clone(), svc, iss, keys).plate();
-    let base = app(core.clone(), &cfg.listen.prefix)
-        .merge(plate)
-        .merge(flags);
+    let base = app(core.clone(), &seat.prefix).merge(plate).merge(flags);
     let router = Router::new().nest(PREFIX, door.screen(base));
-    let addr = format!("{}:{}", cfg.listen.host, cfg.listen.port);
+    let addr = format!("{}:{}", seat.host, seat.port);
     let bound = match tokio::net::TcpListener::bind(&addr).await {
         Ok(bound) => bound,
         Err(err) => halt("listen", &err.to_string()),

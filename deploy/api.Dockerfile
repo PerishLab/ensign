@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN useradd --system --uid 10001 --home /ensign ensign
 WORKDIR /ensign
 COPY --from=build /src/target/release/api /usr/local/bin/ensign-api
-COPY deploy/keel.toml keel.toml
+COPY deploy/ensign.toml ensign.toml
 RUN mkdir -p .local && chown -R ensign:ensign /ensign
 USER ensign
 EXPOSE 3500

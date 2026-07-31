@@ -28,8 +28,8 @@ const run = await Deno.makeTempDir({ dir, prefix: "run-" });
 const sudoPath = `${run}/sudo`;
 const signingPath = `${run}/sign.pem`;
 await Deno.writeTextFile(
-  `${run}/keel.toml`,
-  `[listen]\nhost = "${host}"\nport = ${port}\nprefix = ""\n\n[store]\nkind = "file"\npath = "estate.db"\n\n[identity]\nunit = "Actor"\n\n[cache]\nkind = "memory"\n`,
+  `${run}/ensign.toml`,
+  `[listen]\nhost = "${host}"\nport = ${port}\nprefix = ""\n\n[store]\nkind = "file"\npath = "estate.db"\n\n[cache]\nkind = "memory"\n`,
 );
 
 io.print("==> build api");
@@ -37,7 +37,7 @@ await bin("cargo").run(["build", "--locked"], { cwd: root });
 
 const pg = Deno.env.get("API_STORE_URL");
 const bootstrapEnv: Record<string, string> = pg
-  ? { API_STORE_KIND: "pg", API_STORE_URL: pg, API_FRESH: "1" }
+  ? { API_STORE_KIND: "pg", API_STORE_URL: pg, API_FRESH: "true" }
   : {};
 const serveEnv: Record<string, string> = pg ? { API_STORE_KIND: "pg", API_STORE_URL: pg } : {};
 if (pg) {

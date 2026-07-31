@@ -1276,14 +1276,13 @@ dependencies = [
 
 [[package]]
 name = "keel"
-version = "0.9.0"
+version = "0.10.2"
 source = "sparse+https://git.perish.top/api/packages/PerishLab/cargo/"
-checksum = "f25011bed502855bdd6e447371096f3cd1f34da1add4738b39ca98039d446993"
+checksum = "8e05914b1604629210dc6874b82a1ce93a9377ce4f9f7e1c19f7b38817aac284"
 dependencies = [
  "axum",
  "getrandom 0.3.4",
  "keel-macro",
- "plumb",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -1293,9 +1292,9 @@ dependencies = [
 
 [[package]]
 name = "keel-gate"
-version = "0.9.0"
+version = "0.10.2"
 source = "sparse+https://git.perish.top/api/packages/PerishLab/cargo/"
-checksum = "5f5d72d7319785b050076136af767e9d1e0d0939c8639598664f9b1b2b3dc966"
+checksum = "a146a1e466532788c6178e5e4a1e0076cb418d77d8b44f52dae8cdef44452fed"
 dependencies = [
  "axum",
  "getrandom 0.3.4",
@@ -1306,9 +1305,9 @@ dependencies = [
 
 [[package]]
 name = "keel-macro"
-version = "0.9.0"
+version = "0.10.2"
 source = "sparse+https://git.perish.top/api/packages/PerishLab/cargo/"
-checksum = "86b47a035c9e838d0e2eae370b5a5cb67f104dcd6665fdf57ae51f651de1b14a"
+checksum = "45114f8b9b88fe9d489dddfd6bee06dfe79e2236b43eb1876efeb7aedcb7e76c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1652,9 +1651,9 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
 name = "plumb"
-version = "0.5.0"
+version = "0.18.5"
 source = "sparse+https://git.perish.top/api/packages/PerishLab/cargo/"
-checksum = "fedabb48658b60f98a000b984bb0c9875f2730bbb541564513f2cc08bdd8fa6c"
+checksum = "90a22c67f485a12439b8dccaab56729e0bfb9370df28b0c3bc7b7ab8a3d26acd"
 dependencies = [
  "clap",
  "pin-project-lite",
@@ -1665,9 +1664,9 @@ dependencies = [
 
 [[package]]
 name = "plumb-macro"
-version = "0.5.0"
+version = "0.18.5"
 source = "sparse+https://git.perish.top/api/packages/PerishLab/cargo/"
-checksum = "efbb080626ce128eb20e22ee6ef5e5b418f7a09d801ae86d347e00dc480faea2"
+checksum = "5408ec5dafabab8e2f405ce1e386c822c86b9a9d11af40392d054acac813bd6d"
 dependencies = [
  "proc-macro2",
  "quote",

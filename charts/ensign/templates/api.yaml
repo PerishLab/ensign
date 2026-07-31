@@ -42,8 +42,8 @@ spec:
             {{- end }}
           volumeMounts:
             - name: config
-              mountPath: /ensign/keel.toml
-              subPath: keel.toml
+              mountPath: /ensign/ensign.toml
+              subPath: ensign.toml
       containers:
         - name: api
           image: "{{ .Values.api.image }}:{{ .Values.api.tag | default .Chart.AppVersion }}"
@@ -75,8 +75,8 @@ spec:
             periodSeconds: 5
           volumeMounts:
             - name: config
-              mountPath: /ensign/keel.toml
-              subPath: keel.toml
+              mountPath: /ensign/ensign.toml
+              subPath: ensign.toml
       volumes:
         - name: config
           configMap:
