@@ -1,28 +1,28 @@
+[[ban]]
+paths = ["apps/web/src/lib/components/**"]
+syntax = "style"
+
 [comment]
 allow = false
 
 [[grant]]
 paths = [
-  "apps/*/tests/**/*.test.ts",
-  "apps/*/tests/**/*.test.tsx",
-  "crates/*/tests/**/*.rs",
+    "apps/*/tests/**/*.test.ts",
+    "apps/*/tests/**/*.test.tsx",
+    "crates/*/tests/**/*.rs",
 ]
 syntax = "test"
 
 [[grant]]
 paths = [
-  "apps/*/tests/**/*.test.ts",
-  "apps/*/tests/**/*.test.tsx",
-  "apps/web/vite.config.ts",
-  "crates/*/tests/**/*.rs",
-  "crates/api/src/config.rs",
-  "crates/cli/src/config.rs",
+    "apps/*/tests/**/*.test.ts",
+    "apps/*/tests/**/*.test.tsx",
+    "apps/web/vite.config.ts",
+    "crates/*/tests/**/*.rs",
+    "crates/api/src/config.rs",
+    "crates/cli/src/config.rs",
 ]
 syntax = "environment"
-
-[[ban]]
-paths = ["apps/web/src/lib/components/**"]
-syntax = "style"
 
 [limit]
 block = 4
@@ -34,26 +34,28 @@ path = 4
 
 [module]
 roots = [
-  "apps/*/src",
-  "apps/*/tests",
-  "crates/*/src",
-  "crates/*/tests",
-  "docs",
+    "apps/*/src",
+    "apps/*/tests",
+    "crates/*/src",
+    "crates/*/tests",
+    "docs",
+    "skills/*",
 ]
 
 [scan]
 exclude = [
-  "**/dist/**",
-  "**/node_modules/**",
-  "**/target/**",
+    "**/dist/**",
+    "**/node_modules/**",
+    "**/target/**",
 ]
 include = [
-  "apps/**/*.css",
-  "apps/**/*.scss",
-  "apps/**/*.ts",
-  "apps/**/*.tsx",
-  "crates/**/*.rs",
-  "docs/**/*.md",
+    "apps/**/*.css",
+    "apps/**/*.scss",
+    "apps/**/*.ts",
+    "apps/**/*.tsx",
+    "crates/**/*.rs",
+    "docs/**/*.md",
+    "skills/**/*.md",
 ]
 
 [word]
