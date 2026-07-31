@@ -51,7 +51,7 @@ async function forge(
     return;
   }
   io.print(`==> build ensign-${face}`);
-  const build = ["build", "-f", file, "-t", image];
+  const build = ["build", "--network=host", "-f", file, "-t", image];
   if (needsCargo) {
     build.push("--secret", `id=cargo,src=${CREDS}`);
   }
