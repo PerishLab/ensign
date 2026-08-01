@@ -3,7 +3,6 @@ import { bin } from "@/lib/std/cmd.ts";
 import { io } from "@/lib/std/io.ts";
 
 const REG = "git.perish.top/perishlab";
-const CREDS = `${Deno.env.get("HOME")}/.cargo/credentials.toml`;
 
 function usage(): void {
   io.print("Usage: runseal :ship");
@@ -33,7 +32,7 @@ if (dirty.trim() !== "") {
 const version = await current(root);
 io.print(`==> ship v${version}`);
 
-await forge("api", "deploy/api.Dockerfile", true, root, version);
+await forge("api", "deploy/api.Dockerfile", "api", root, version);
 await chart(root, version);
 
 io.print("ship: clean");
@@ -41,7 +40,7 @@ io.print("ship: clean");
 async function forge(
   face: string,
   file: string,
-  needsCargo: boolean,
+  crate: string,
   root: string,
   version: string,
 ): Promise<void> {
@@ -50,18 +49,25 @@ async function forge(
     io.print(`==> ensign-${face} v${version} already pushed`);
     return;
   }
+  await carve(crate, face, root);
   io.print(`==> build ensign-${face}`);
-  const build = ["build", "--network=host", "-f", file, "-t", image];
-  if (needsCargo) {
-    build.push("--secret", `id=cargo,src=${CREDS}`);
-  }
-  build.push(".");
-  await bin("docker").run(build, {
+  await bin("docker").run(["build", "-f", file, "-t", image, "."], {
     cwd: root,
     env: { DOCKER_BUILDKIT: "1" },
   });
   io.print(`==> push ensign-${face}`);
   await bin("docker").run(["push", image], { cwd: root });
+}
+
+async function carve(crate: string, face: string, root: string): Promise<void> {
+  io.print(`==> build ${crate} for the image`);
+  await bin("cargo").run(["build", "--release", "--locked", "-p", crate], {
+    cwd: root,
+  });
+  await Deno.copyFile(
+    `${root}/target/release/${crate}`,
+    `${root}/deploy/ensign-${face}`,
+  );
 }
 
 async function chart(root: string, version: string): Promise<void> {
