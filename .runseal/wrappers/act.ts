@@ -787,8 +787,12 @@ try {
     if (first.code !== 0) {
       throw new Error(`cli login after join ${first.err.trim()}`);
     }
-    const kept = await Deno.readTextFile(`${run}/cli-join/credential`);
-    const pat = kept.split("\n")[1] ?? "";
+    const kept = await Deno.readTextFile(`${run}/cli-join/state/pat.json`);
+    const held = JSON.parse(kept) as { schema?: number; token?: string };
+    if (held.schema !== 1) {
+      throw new Error(`credential schema ${held.schema}`);
+    }
+    const pat = held.token ?? "";
     const codes = await post("/mint", {}, { authorization: `token ${pat}` });
     const spare = ((codes.body as { codes?: string[] }).codes ?? [])[0] ?? "";
     if (codes.status !== 201 || !spare) {

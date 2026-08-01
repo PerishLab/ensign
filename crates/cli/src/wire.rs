@@ -66,30 +66,54 @@ pub(crate) fn home() -> Result<std::path::PathBuf, String> {
     config::home()
 }
 
+const SCHEMA: u64 = 1;
+
+pub(crate) fn kept() -> Result<std::path::PathBuf, String> {
+    Ok(home()?.join("state").join("pat.json"))
+}
+
 pub(crate) fn load() -> Option<(String, String)> {
-    let text = std::fs::read_to_string(home().ok()?.join("credential")).ok()?;
-    let mut lines = text.lines();
-    let base = lines.next()?.to_string();
-    let token = lines.next()?.to_string();
+    let text = std::fs::read_to_string(kept().ok()?).ok()?;
+    let held: Value = serde_json::from_str(&text).ok()?;
+    if held.get("schema").and_then(Value::as_u64) != Some(SCHEMA) {
+        return None;
+    }
+    let base = held.get("base")?.as_str()?.to_string();
+    let token = held.get("token")?.as_str()?.to_string();
     Some((base, token))
 }
 
 pub(crate) fn save(base: &str, token: &str) -> Reply {
-    let dir = home()?;
-    std::fs::create_dir_all(&dir).map_err(|err| format!("credential dir: {err}"))?;
-    let path = dir.join("credential");
-    let mut file = std::fs::File::create(&path).map_err(|err| format!("credential: {err}"))?;
-    file.write_all(format!("{base}\n{token}\n").as_bytes())
+    let path = kept()?;
+    let dir = path
+        .parent()
+        .ok_or_else(|| "credential has no directory".to_string())?;
+    std::fs::create_dir_all(dir).map_err(|err| format!("credential dir: {err}"))?;
+    let held = serde_json::json!({ "schema": SCHEMA, "base": base, "token": token });
+    let beside = path.with_extension("json.new");
+    let mut file = std::fs::File::create(&beside).map_err(|err| format!("credential: {err}"))?;
+    guard(&beside);
+    file.write_all(held.to_string().as_bytes())
+        .and_then(|_| file.sync_all())
         .map_err(|err| format!("credential: {err}"))?;
+    std::fs::rename(&beside, &path).map_err(|err| format!("credential: {err}"))?;
     guard(&path);
+    shed();
     Ok(())
 }
 
 pub(crate) fn wipe() -> Reply {
-    if let Ok(path) = home().map(|dir| dir.join("credential")) {
+    if let Ok(path) = kept() {
         let _ = std::fs::remove_file(path);
     }
+    shed();
     Ok(())
+}
+
+fn shed() {
+    if let Ok(dir) = home() {
+        let _ = std::fs::remove_file(dir.join("credential"));
+    }
 }
 
 #[cfg(unix)]
