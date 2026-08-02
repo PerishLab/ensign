@@ -1,16 +1,40 @@
+use plumb::config::Cascade;
 use std::path::PathBuf;
 
+#[derive(Debug, PartialEq, Cascade)]
+pub struct Profile {
+    pub url: String,
+    pub home: String,
+}
+
+impl Default for Profile {
+    fn default() -> Self {
+        let seat = plumb::config::data("ensign")
+            .map(|path| path.display().to_string())
+            .unwrap_or_default();
+        Profile {
+            url: String::new(),
+            home: seat,
+        }
+    }
+}
+
+pub fn profile() -> Result<Profile, String> {
+    Profile::resolve(None).map_err(|err| err.to_string())
+}
+
 pub fn base() -> Result<String, String> {
-    std::env::var("ENSIGN_URL").map_err(|_| "ENSIGN_URL is required".into())
+    let held = profile()?.url;
+    if held.is_empty() {
+        return Err("ENSIGN_URL is required".to_string());
+    }
+    Ok(held)
 }
 
 pub fn home() -> Result<PathBuf, String> {
-    if let Ok(dir) = std::env::var("ENSIGN_HOME") {
-        return Ok(PathBuf::from(dir));
+    let held = profile()?.home;
+    if held.is_empty() {
+        return Err("no home to store the credential".to_string());
     }
-    if let Ok(base) = std::env::var("XDG_CONFIG_HOME") {
-        return Ok(PathBuf::from(base).join("ensign"));
-    }
-    let base = std::env::var("HOME").map_err(|_| "no home to store the credential")?;
-    Ok(PathBuf::from(base).join(".config/ensign"))
+    Ok(PathBuf::from(held))
 }
