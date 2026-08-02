@@ -23,6 +23,7 @@ fn main() {
     let verb = args.first().map(String::as_str).unwrap_or("help");
     let rest = Rest(&args[args.len().min(1)..]);
     let done = match verb {
+        "--version" | "-V" => stamp(),
         "login" => rest.login(),
         "logout" => logout(),
         "whoami" => whoami(),
@@ -41,6 +42,11 @@ fn main() {
         eprintln!("ensign: {note}");
         exit(1);
     }
+}
+
+fn stamp() -> Reply {
+    println!("ensign {}", plumb::version!("ENSIGN"));
+    Ok(())
 }
 
 fn usage() -> Reply {
