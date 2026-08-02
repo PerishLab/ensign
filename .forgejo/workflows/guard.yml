@@ -5,7 +5,11 @@ on:
   push:
     branches:
       - main
+      - "release/**"
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: guard-${{ github.event.pull_request.number || github.ref }}
@@ -19,6 +23,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Install stable Ectropy
         uses: PerishLab/actions/setup-binary@main
@@ -34,6 +40,34 @@ jobs:
         run: |
           set -eu
           export PATH="$HOME/.local/bin:$PATH"
+          plumb doctor .
+          ectropy .
+          cargo fmt --all --check
+          cargo clippy --locked --workspace --all-targets -- -D warnings
+          cargo test --locked --workspace
+          cargo check --locked --workspace --all-targets --release
+          deno fmt --check .runseal
+          deno check \
+            --config .runseal/deno.json \
+            --lock .runseal/deno.lock \
+            --frozen=true \
+            .runseal/wrappers/act.ts \
+            .runseal/wrappers/ship.ts
+
+      - name: Chart
+        run: |
+          set -eu
+          export PATH="$HOME/.local/bin:$PATH"
+          if command -v helm >/dev/null 2>&1; then
+            helm lint charts/ensign --quiet
+          else
+            echo "helm absent: chart lint stays a local gate"
+          fi
+
+      - name: Acts
+        run: |
+          set -eu
+          export PATH="$HOME/.local/bin:$PATH"
           deno run \
             --allow-read \
             --allow-write \
@@ -43,4 +77,4 @@ jobs:
             --config .runseal/deno.json \
             --lock .runseal/deno.lock \
             --frozen=true \
-            .runseal/wrappers/guard.ts
+            .runseal/wrappers/act.ts
