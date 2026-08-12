@@ -1,3 +1,6 @@
+[skill]
+strategy = "brief"
+
 [release]
 product = "ensign"
 authority = "https://releases.ensign.perish.uk"
