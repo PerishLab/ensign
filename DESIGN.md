@@ -1,45 +1,54 @@
 # Design
 
-ensign's face answers to the same constitution as its source: a closed
-vocabulary, declared territories, violations a freshman can point at.
-The aesthetic is **clean and clear, systematically laid out** — the
-classic Google shape as a base, extended. Light by default, one accent,
-generous space, a real type and spacing scale. It is the shared design
-language the fleet inherits.
+Ensign owns the proof from possession to identity. Keel owns every resource
+effect after that proof. A successful password, session, token, recovery, or
+provider ceremony yields an Actor identity and continues through its ordinary
+operator; service work continues through the service operator. Sudo appears
+only in genesis and identity birth.
 
-## The shared substrate
+## Resources
 
-Generic tokens, themes, layout, fields, controls, and content come from
-`@perish/react-components`; Vite materializes the shared Design runtime
-through `@perish/vite-plugin-design`.
+- `Actor` is the identity root: unique login, display name, and user or service
+  kind.
+- `Pass` is the one-to-one password floor. Keel stores the row; Ensign owns the
+  authentication ceremony.
+- `Invite` is invitation-only enrollment, rooted at its issuer and ended on
+  use. Expiry rides its lease.
+- `Rescue` is a one-shot recovery possession rooted at an Actor.
+- `Team` is the group unit. Crew grants expand from its live Actor membership.
+- `App` is the common registry for OIDC and forward-auth clients.
+- `Renew` is a refresh grant bound to Actor, client, and scope. Rotation ends
+  the old live row before minting the next and never widens scope.
+- Gate-owned Token and Session rows remain rooted at Actor.
 
-Ensign keeps product compositions under `apps/web/src/lib/components`.
-They compose shared primitives and semantic markup but own no stylesheet,
-style declaration, or parallel token foundation.
+All administration remains the ordinary six resource verbs. Ensign ceremonies
+compose those primitives but do not create a local authorization ledger.
 
-## The tokens
+## Credentials
 
-| dimension | tokens | shape |
-| --- | --- | --- |
-| color | `ground` `panel` `well` `rule` `ink` `bright` `muted` `accent` `glow` `warn` `flush` | page, card, sunken input, hairline, body / heading / secondary text, one accent, its tint, the warning ink and its wash |
-| type | `fine` `body` `lead` `title` `hero` | fine print, prose, deck, section head, wordmark |
-| space | `gap` `step` `room` `span` `rise` | 0.25 / 0.5 / 1 / 1.5 / 2 rem — an 8px grid |
-| form | `radius` `bead` `line` `rim` `card` `sheet` | corner, pill, hairline, focus ring, auth-card width, content-page width |
-| motion | `beat` | one transition |
-| number | `leading` `heft` | line height, medium weight |
-| depth | `lift` | one elevation shadow |
-| face | `sans` `mono` | the two families |
+Pass, Rescue, Renew, Invite, Token, and Session are veiled credential units.
+They are engine-governed and ceremony-written but never exposed through the
+generic resource projection. No operator can author or read credential rows on
+the wire.
 
-An unused token is a squatter and gets evicted.
+Enrollment is one transaction: consume the Invite, create the Actor through
+identity birth, create Pass, and establish the newborn self grant. Recovery
+burns the matching Rescue possession, every remaining rescue code, and every
+session before establishing a new password floor.
 
-## Territory
+OIDC authorization requires `openid`, carries nonce into the identity token,
+and accepts only HTTPS or loopback redirects. Access and identity tokens carry
+distinct kinds. Forward-auth resolves the same operator and returns identity
+headers only for a live, unbarred identity.
 
-Only the shared Design package declares style. Ensign's `lib/components`
-territory is style-free, `Shell` loads the shared runtime, and every view
-mounts inside it.
+## Possessions
 
-## The bar
+The ES256 signing key is app-owned durable bytes created only by explicit
+bootstrap and loaded read-only at runtime. Signing custody and sudo custody are
+separate even when orchestration uses the same artifact grammar. Runtime must
+never receive the sudo artifact.
 
-The face is judged adversarially: a codex + grok cross-review must find
-no defect for two consecutive rounds before the UI ships. The review is
-the gate.
+Authorization codes and future ceremony challenges are in-process ephemera,
+not Keel rows. Durable credentials use leased rows; protocol ephemera die with
+the process. Bearer material comes from the operating system CSPRNG and is
+never printed or persisted in authored configuration.

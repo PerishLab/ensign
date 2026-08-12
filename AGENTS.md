@@ -18,6 +18,7 @@ codehull rides the same rails. The laws of the engine live in
 - `apps/web` — a placeholder `index.html` only. The web plane is deferred,
   not deleted; the seat is held so the delivery paradigm can return without
   re-litigating its place. The pnpm workspace files stay for the same reason.
+- `DESIGN.md` — current identity-resource and ceremony doctrine.
 
 Guard runs from `.forgejo/workflows/guard.yml` and calls its checkers
 directly: Plumb, Ectropy, cargo fmt/clippy/test, the release profile, deno
@@ -49,8 +50,8 @@ Plumb 0.18.6 admitted the wrapperless shape.
 - OIDC (code + PKCE) and forward-auth are the two provider faces.
 - No SAML / LDAP / RADIUS / SCIM / flow engine / expression policies /
   upstream federation — permanent cuts.
-- Capability needs ride keel's gate primitives (`keel:docs/run/capability.md`
-  § Gate); engine gaps become keel issues, not a local ledger.
+- Capability needs ride keel's gate primitives; engine gaps become keel issues,
+  not a local ledger.
 - The first administrator is an ordinary Actor plus an ordinary `@grant`.
   Ensign CLI exposes the operation, but it remains a sudo-authorized keel
   resource creation; no role field, bootstrap table, or special admin route.
@@ -64,8 +65,8 @@ Plumb 0.18.6 admitted the wrapperless shape.
 ## Laws
 
 - Ectropy owns syntax laws (single word, block/path <= 4, no comments);
-  Plumb owns repository shape and the canonical `ectropy.toml`. Vocabulary
-  deltas remain documented in `docs/vocabulary.md`.
+  Plumb owns repository shape and the canonical `ectropy.toml`. Vocabulary is
+  expressed by the executable source and checked by Ectropy.
 - Dependency direction: ensign -> keel-gate -> keel, plus plumb for the
   config mechanism and the build version stamp only (never its vocabulary).
   Never a workspace sibling of keel; distribution follows keel's channel.
@@ -84,3 +85,6 @@ Plumb 0.18.6 admitted the wrapperless shape.
   in `.forgejo/workflows` stay thin and must keep declaring `guard_contexts`,
   which is what makes a release read the guard evidence already recorded
   against the commit instead of recomputing it against a moving registry.
+
+For local development, `sidecar start|status|stop` owns the API/Web topology.
+The CLI receives the explicit API root, including `/api`, through `ENSIGN_URL`.
