@@ -11,16 +11,16 @@ skill = true
 
 [[document]]
 strategy = "agent"
-source = [{ path = ".", seal = "94fb0ddf7e51b3dd1d0d0dc977260c4c0f2626dc31d1656555ea7525c423051b" }]
+source = [{ path = ".", seal = "101399b37a307aeeaf54c636f23cac8e645994489272b5b45de04837f8cf0826" }]
 target-seal = "5475796540be74ff354f97b2feb3013e0aa79ed33ebee81dfdaded5ca3a3bacb"
 
 [[document]]
 strategy = "design"
-source = [{ path = ".", seal = "94fb0ddf7e51b3dd1d0d0dc977260c4c0f2626dc31d1656555ea7525c423051b" }]
+source = [{ path = ".", seal = "101399b37a307aeeaf54c636f23cac8e645994489272b5b45de04837f8cf0826" }]
 target-seal = "8f6ce83507b6d03706cbf9bf60c8a7f08d651ac73faf326e7403c4b978d46984"
 
 [[document]]
 strategy = "brief"
 name = "ensign"
-source = [{ path = ".", seal = "94fb0ddf7e51b3dd1d0d0dc977260c4c0f2626dc31d1656555ea7525c423051b" }]
+source = [{ path = ".", seal = "101399b37a307aeeaf54c636f23cac8e645994489272b5b45de04837f8cf0826" }]
 target-seal = "ff68db2fec69ddc9e82e23f907f137e8e52e2819ba76013d69380daf22b83370"
