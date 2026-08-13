@@ -24,11 +24,12 @@ Guard runs from `.forgejo/workflows/guard.yml` and calls its checkers
 directly: Plumb, Ectropy, cargo fmt/clippy/test, the release profile, deno
 fmt/check, helm lint where helm exists, and the acts.
 
-Two wrappers remain under `.runseal/wrappers`, each with a role Plumb
-recognises: `act.ts` is the acts harness, and `ship.ts` builds and pushes the
-api image and the chart. The generic guard, init and land wrappers and the
-repository-owned Git hooks are gone — Runseal 0.14 stopped hosting them and
-Plumb 0.18.6 admitted the wrapperless shape.
+Two wrappers remain under `.runseal/wrappers`: `act.ts` is the acts harness,
+and `ship.ts` currently builds and pushes the api image and the chart. That
+is the tree today, not a settled assignment — where `ship.ts` belongs is
+`ensign-codehull-closure` D2, still open. The generic guard, init and land
+wrappers and the repository-owned Git hooks are gone — Runseal 0.14 stopped
+hosting them and Plumb 0.18.6 admitted the wrapperless shape.
 
 ## Product stance
 
