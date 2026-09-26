@@ -19,6 +19,10 @@ struct Cli {
 }
 
 fn main() {
+    if let Err(error) = plumb::identity!("ENSIGN") {
+        eprintln!("ensign: {error}");
+        exit(1);
+    }
     let args = Cli::parse().args;
     let verb = args.first().map(String::as_str).unwrap_or("help");
     let rest = Rest(&args[args.len().min(1)..]);

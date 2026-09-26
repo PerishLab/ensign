@@ -3,10 +3,10 @@ resolver = "3"
 members = ["crates/api", "crates/cli"]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.0.0"
 edition = "2024"
 license = "MIT"
-repository = "https://git.perish.top/PerishLab/ensign"
+repository = "https://github.com/PerishLab/ensign"
 
 [workspace.dependencies]
 clap = { version = "4", features = ["derive"] }
