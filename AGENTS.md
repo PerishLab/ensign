@@ -14,15 +14,14 @@ codehull rides the same rails. The laws of the engine live in
   repository name.
 - `charts/ensign` — the helm delivery.
 - `deploy` — the runtime image and the compose surface.
-- `skills/ensign` — the bootstrap law, authoritative rather than a summary.
 - `apps/web` — a placeholder `index.html` only. The web plane is deferred,
   not deleted; the seat is held so the delivery paradigm can return without
   re-litigating its place. The pnpm workspace files stay for the same reason.
 - `DESIGN.md` — current identity-resource and ceremony doctrine.
 
-Guard runs from `.forgejo/workflows/guard.yml` and calls its checkers
-directly: Plumb, Ectropy, cargo fmt/clippy/test, the release profile, deno
-fmt/check, helm lint where helm exists, and the acts.
+Plumb's pre-commit guard proves every commit against its exact staged tree,
+and `plumb guard .` shows what it runs. `helm lint` and the acts are run by
+hand when a change touches the chart or the delivery.
 
 Two wrappers remain under `.runseal/wrappers`: `act.ts` is the acts harness,
 and `ship.ts` currently builds and pushes the api image and the chart. That
@@ -56,8 +55,8 @@ hosting them and Plumb 0.18.6 admitted the wrapperless shape.
 - The first administrator is an ordinary Actor plus an ordinary `@grant`.
   Ensign CLI exposes the operation, but it remains a sudo-authorized keel
   resource creation; no role field, bootstrap table, or special admin route.
-- Cold start law has settled and lives in `skills/ensign/SKILL.md`. It is the
-  authority, not a summary: the server image has separate bootstrap and serve
+- Cold start law has settled and lives in the Cold start section below. It is
+  the authority, not a summary: the server image has separate bootstrap and serve
   operations; bootstrap composes Keel hotspots and caller-owned artifact
   destinations, while serve only verifies prerequisites and refuses a `sudo`
   artifact by name. Sudo and OIDC signing may share orchestration grammar but
@@ -77,15 +76,42 @@ hosting them and Plumb 0.18.6 admitted the wrapperless shape.
   from `SIDECAR_PORT` in `sidecar.toml`, never read in product code.
 - Engine gaps become keel issues and registry releases, never local
   workarounds; architecture conflicts halt the thread and get raised.
-- Never commit on `main`. Branch, let the guard lane prove the commit, then
-  land through a pull request. A landed seat is retired immediately: a
-  rebase-landed worktree stops being provably landed once `main` moves again.
-- Releases run through Plumb, never by hand: `plumb release dispatch` for an
-  exact candidate, then `plumb stable prepare / pick / freeze`, promotion, and
-  `plumb stable packport`. `plumb.toml` declares the product; the two callers
-  in `.forgejo/workflows` stay thin and must keep declaring `guard_contexts`,
-  which is what makes a release read the guard evidence already recorded
-  against the commit instead of recomputing it against a moving registry.
+- Never commit on `main`. Branch, let the guard prove the commit, then land it
+  with `plumb land`. A landed seat is retired immediately.
+- Releases run through Plumb and wharf, never by hand. `plumb.toml` declares
+  the product, its authority, the `ensign` CLI and its skill; the `api` server,
+  its image and the chart are not released yet. `plumb release open` cuts
+  `release/<version>` from a guarded `main`, `plumb release stamp` marks it,
+  and `plumb ship dispatch` hands the marker to wharf, which binds and
+  publishes the CLI. Each stable owes its changelog and its skill, written for
+  it and consigned with `plumb depot consign --kind changelog|skill --dir`;
+  `plumb release owed` lists what is still owed.
 
 For local development, `sidecar start|status|stop` owns the API/Web topology.
 The CLI receives the explicit API root, including `/api`, through `ENSIGN_URL`.
+
+## Cold start
+
+- A **bootstrap** is one startup ceremony with a beginning and an end, never a
+  row, a role, a route, or a long-running mode.
+- An **artifact** is one named secret with one caller-selected destination:
+  `sudo` for Keel estate genesis, `signing` for the OIDC key.
+- **Sudo** is genesis possession; it is never converted into an account or
+  retained as a steady-state role.
+- The **service Actor** is exactly one live `Actor` named `ensign`, kind `svc`,
+  `barred=false`, holding ordinary Keel `@grant` rows.
+- Custody and runtime are separate seats. The process that may mint or keep
+  sudo is not the process that serves requests; when orchestration cannot hold
+  that line, the binary holds it.
+- Refusal over repair. A missing prerequisite is a named refusal and the
+  listener never opens; duplicate or conflicting state is drift, never silently
+  rewritten.
+- The cold start is vendor-free. The password primitive, recovery codes, and
+  the sudo window are the floor, and no layer's last exit depends on a vendor.
+- Generate a credential once per secret and reuse it. `helm lint` and
+  `helm template` are both silent about a second `randAlphaNum` call.
+- Every retained artifact carries `helm.sh/resource-policy: keep`, so deleting
+  one is a deliberate human act. The chart deploys no web plane.
+- `crates/api/tests/{law,bootstrap}.rs` mechanize grant vocabulary, the
+  `.sudo()` exception, `serve` refusing a `sudo` artifact, and the replay
+  table. Run the suite instead of restating its verdicts.
