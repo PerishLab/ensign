@@ -1,3 +1,43 @@
+[layout]
+
+[[layout.seat]]
+path = "crates/*"
+anchor = ["Cargo.toml"]
+note = "The api server, a keel caller, and the ensign CLI."
+
+[[layout.seat]]
+path = "apps/*"
+anchor = []
+note = "The deferred web plane; the seat is held so the delivery paradigm can return."
+
+[[layout.seat]]
+path = "deploy"
+note = "The runtime image and the compose surface."
+
+[[layout.seat]]
+path = ".cargo"
+note = "Cargo registry configuration."
+
+[[layout.seat]]
+path = ".runseal"
+note = "Committed Runseal resources and the two remaining wrappers."
+
+[[layout.file]]
+name = ["Cargo.toml", "Cargo.lock", "rust-toolchain.toml"]
+note = "Rust workspace anchors and the toolchain wharf builds with."
+
+[[layout.file]]
+name = ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "biome.json"]
+note = "The pnpm workspace anchors held for the web plane."
+
+[[layout.file]]
+name = ["DESIGN.md"]
+note = "Identity-resource and ceremony doctrine."
+
+[[layout.file]]
+name = ["ensign.toml", "docker-compose.yml", ".dockerignore"]
+note = "Local runtime configuration and the compose entry."
+
 [release]
 product = "ensign"
 authority = "https://releases.ensign.perish.uk"
@@ -8,19 +48,3 @@ targets = [
   "x86_64-pc-windows-msvc",
 ]
 skill = true
-
-[[document]]
-strategy = "agent"
-source = [{ path = ".", seal = "101399b37a307aeeaf54c636f23cac8e645994489272b5b45de04837f8cf0826" }]
-target-seal = "fedc61005f9182e36239cc5e9806d48d8426f6e5e4b80c063df9db76b3860764"
-
-[[document]]
-strategy = "design"
-source = [{ path = ".", seal = "101399b37a307aeeaf54c636f23cac8e645994489272b5b45de04837f8cf0826" }]
-target-seal = "8f6ce83507b6d03706cbf9bf60c8a7f08d651ac73faf326e7403c4b978d46984"
-
-[[document]]
-strategy = "brief"
-name = "ensign"
-source = [{ path = ".", seal = "101399b37a307aeeaf54c636f23cac8e645994489272b5b45de04837f8cf0826" }]
-target-seal = "ff68db2fec69ddc9e82e23f907f137e8e52e2819ba76013d69380daf22b83370"
