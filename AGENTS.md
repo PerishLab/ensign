@@ -4,7 +4,7 @@ This repository is a keel **caller**: ensign, the identity product —
 an authentik-shaped IdP built purely on keel. It validates the whole
 delivery framework (version train, acts, release lane, ship) before
 codehull rides the same rails. The laws of the engine live in
-`keel:docs/*`; this repo obeys them from the outside.
+keel's `AGENTS.md` and source; this repo obeys them from the outside.
 
 ## Layout
 
