@@ -89,16 +89,13 @@ wrapperless shape.
   never installed. The server is placed in the image
   `ghcr.io/perishlab/ensign:<version>` built from the root `Containerfile`,
   and the chart is published as `oci://ghcr.io/perishlab/charts/ensign`, both
-  under the same marker as the CLI. `plumb release open` cuts
-  `release/<version>` from a guarded `main`, `plumb release stamp` marks it,
-  and `plumb ship dispatch` hands the marker to wharf, which binds both
-  executables and publishes the archives, the image and the chart. Both
+  under the same marker as the CLI. Releases follow Plumb's
+  lifecycle (`plumb release --help`); wharf binds both executables and
+  publishes the archives, the image and the chart. Both
   executables call `plumb::identity!("ENSIGN")` and print `<binary> <marker>`
   from `--version`; an unbound `ensign-api` answers `--version` and refuses
   every other operation. Each stable owes its changelog and its skill,
-  written for it and consigned with
-  `plumb depot consign --kind changelog|skill --dir`; `plumb release owed`
-  lists what is still owed.
+  written for it and consigned to the Depot (`plumb depot --help`).
 
 For local development, `sidecar start|status|stop` owns the API/Web topology.
 The CLI receives the explicit API root, including `/api`, through `ENSIGN_URL`.
