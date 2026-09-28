@@ -42,6 +42,3 @@ postgres:
   # preserves it across upgrades; a well-known default is not a credential.
   password: ""
   storage: 1Gi
-bootstrap:
-  # The Job replays an occupied estate, so a retry is cheap and safe.
-  retries: 6

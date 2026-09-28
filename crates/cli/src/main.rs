@@ -25,6 +25,12 @@ fn main() {
     }
     let args = Cli::parse().args;
     let verb = args.first().map(String::as_str).unwrap_or("help");
+    if !matches!(verb, "--version" | "-V")
+        && let Err(error) = plumb::identity::ready()
+    {
+        eprintln!("ensign: {error}");
+        exit(1);
+    }
     let rest = Rest(&args[args.len().min(1)..]);
     let done = match verb {
         "--version" | "-V" => stamp(),

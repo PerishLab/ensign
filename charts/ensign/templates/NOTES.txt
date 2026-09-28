@@ -1,7 +1,8 @@
 ensign is installed.
 
-The bootstrap Job minted the genesis sudo token and kept it in a Secret. It is
-never printed and never re-minted; read it when you need it:
+Bootstrap, the api pod's initContainer, minted the genesis sudo token and kept
+it in a Secret. It is never printed and never re-minted; read it when you need
+it:
 
   kubectl -n {{ .Release.Namespace }} get secret {{ .Release.Name }}-sudo \
     -o jsonpath='{.data.value}' | base64 -d
@@ -22,11 +23,13 @@ not: an occupied estate whose sudo Secret is gone cannot be bootstrapped.
 Point at an external PostgreSQL with postgres.urlSecret.name and .key, and the
 chart holds no credential at all.
 
-The api seat cannot read that Secret. Its ServiceAccount is granted get on
-{{ .Release.Name }}-signing alone.
+One ServiceAccount covers the whole pod, so RBAC lets serve read that Secret
+too. The separation rests on the binary: serve refuses a sudo artifact by name.
 
-On a fresh install the api pod may restart a few times until the Job finishes:
-serve verifies its prerequisites and refuses rather than writing anything.
+On a fresh install the api pod may restart a few times while its bootstrap
+initContainer waits for the store. Bootstrap replays safely, and serve starts
+only after it succeeds, verifying its prerequisites rather than writing
+anything.
 
 Seed the first administrator with the cli, which reads sudo from stdin:
 
