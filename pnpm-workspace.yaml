@@ -1,15 +1,11 @@
 packages:
   - apps/*
 
-minimumReleaseAgeExclude:
-  - "@jsr/perish__vite-plugin-design"
-
 allowBuilds:
   '@parcel/watcher': false
   esbuild: false
 
 catalog:
-  "@jsr/perish__vite-plugin-design": 0.1.1
   "@biomejs/biome": 2.5.3
   "@types/node": 24.13.3
   "@types/react": 19.2.17
