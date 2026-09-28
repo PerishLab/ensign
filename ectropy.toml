@@ -1,7 +1,7 @@
 [[boundary]]
-paths = ["crates/api/src/lib.rs"]
 allow = ["tuple"]
-note = "Keel Gate's sow and sown APIs require four-position grant tuples"
+note = "keel-gate sow and sown take four-position grant tuples; the named Seed crosses here"
+paths = ["crates/api/src/startup/seed.rs"]
 
 [[ban]]
 paths = ["apps/web/src/lib/components/**"]
