@@ -1,5 +1,5 @@
 api:
-  image: git.perish.top/perishlab/ensign-api
+  image: ghcr.io/perishlab/ensign
   # tag defaults to Chart.appVersion; override only to pin a different image
   tag: ""
   # A released tag is immutable, so IfNotPresent is right for delivery. Set
