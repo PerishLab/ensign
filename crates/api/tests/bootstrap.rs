@@ -84,6 +84,9 @@ fn occupied() {
         String::from_utf8_lossy(&replay.stderr)
             .contains("sudo custody is absent for an occupied estate")
     );
+    assert!(
+        String::from_utf8_lossy(&replay.stderr).contains("ensign cookbook bootstrap.sudo-custody")
+    );
 }
 
 #[test]
@@ -96,6 +99,9 @@ fn malformed() {
 
     let first = bootstrap(&nest.0, &sudo, &signing);
     assert!(!first.status.success());
+    assert!(
+        String::from_utf8_lossy(&first.stderr).contains("ensign cookbook signing.artifact-invalid")
+    );
     assert_eq!(std::fs::read(&signing).expect("preserved"), malformed);
 
     let replay = bootstrap(&nest.0, &sudo, &signing);

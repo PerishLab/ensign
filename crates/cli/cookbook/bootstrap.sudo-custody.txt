@@ -1,0 +1,17 @@
+# bootstrap.sudo-custody
+
+## Trigger
+
+Bootstrap found an occupied estate but the declared sudo artifact has no retained custody.
+
+## Solution
+
+Stop every bootstrap contender. Verify that the declared destination is the original retained sudo artifact for this estate and restore access to that exact artifact. If the artifact is irrecoverably lost, recover or deliberately rebuild the estate through the owning operational procedure; never mint a replacement token against occupied state or mount sudo into the serving runtime.
+
+## Evidence
+
+The same artifact destination loads the retained 64-hex possession, bootstrap replay succeeds without changing it, and the serving process has no sudo artifact declaration or mount.
+
+## EXIT
+
+Remove this entry when occupied-estate custody recovery becomes a safe mechanical operation or the sudo bootstrap model retires.

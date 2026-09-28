@@ -13,6 +13,6 @@ path = "src/main.rs"
 
 [dependencies]
 clap = { workspace = true }
-plumb = { workspace = true }
+plumb = { workspace = true, features = ["skill"] }
 serde_json = { workspace = true }
 ureq = { workspace = true }

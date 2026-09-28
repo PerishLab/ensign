@@ -1,0 +1,17 @@
+# signing.artifact-invalid
+
+## Trigger
+
+Bootstrap or serve found the OIDC signing artifact absent, non-text, or not a valid ES256 PKCS#8 private key.
+
+## Solution
+
+Keep the service stopped and inspect the declared signing destination and its custody boundary. Restore the exact retained private key when one exists. During first bootstrap only, an actually absent destination may be created by the bootstrap ceremony. Never overwrite malformed retained bytes, substitute the sudo artifact, or let concurrent processes choose different keys.
+
+## Evidence
+
+Bootstrap replay reads the same retained PEM, the derived public JWK is stable, and serve loads the signing destination read-only without any sudo custody.
+
+## EXIT
+
+Remove this entry when signing custody recovery becomes mechanical or the signing artifact model retires.

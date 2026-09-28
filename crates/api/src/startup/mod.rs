@@ -8,6 +8,7 @@ use crate::config::{self, Hold, Kind, Runtime};
 use crate::door::{
     auth, invite, join, known, login, logout, mint, repass, revive, shown, token, untoken, who,
 };
+use crate::recovery;
 use crate::{Booth, oidc, shape};
 use axum::Router;
 use axum::routing::{get, post};
@@ -115,7 +116,10 @@ async fn provision<W: Wire + 'static>(
         Some(bytes) => custody(&bytes)?,
         None => {
             if estate.status().await.map_err(|err| err.to_string())? != Status::Vacant {
-                return Err("sudo custody is absent for an occupied estate".to_string());
+                return Err(recovery::note(
+                    "sudo custody is absent for an occupied estate",
+                    recovery::SUDO,
+                ));
             }
             let minted = estate.mint().await.map_err(|err| err.to_string())?;
             if artifacts.sudo.keep(minted.as_bytes())? {
