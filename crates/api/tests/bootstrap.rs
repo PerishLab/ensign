@@ -32,7 +32,7 @@ impl Drop for Nest {
 }
 
 fn bootstrap(root: &Path, sudo: &Path, signing: &Path) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_api"))
+    Command::new(env!("CARGO_BIN_EXE_ensign-api"))
         .arg("bootstrap")
         .arg(root)
         .arg("--artifact")
@@ -107,7 +107,7 @@ fn malformed() {
 }
 
 fn spawn(root: &Path, sudo: &Path, signing: &Path) -> Child {
-    Command::new(env!("CARGO_BIN_EXE_api"))
+    Command::new(env!("CARGO_BIN_EXE_ensign-api"))
         .arg("bootstrap")
         .arg(root)
         .arg("--artifact")
@@ -185,7 +185,7 @@ fn contended() {
 }
 
 fn runtime(root: &Path, sudo: &Path, signing: &Path) -> Child {
-    Command::new(env!("CARGO_BIN_EXE_api"))
+    Command::new(env!("CARGO_BIN_EXE_ensign-api"))
         .arg("serve")
         .arg(root)
         .arg("--artifact")

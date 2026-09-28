@@ -1,6 +1,8 @@
 use clap::{Parser, Subcommand};
+use std::process::exit;
 
 #[derive(Parser)]
+#[command(name = "ensign-api", version = plumb::version!("ENSIGN"))]
 struct Cli {
     #[command(subcommand)]
     command: Option<Command>,
@@ -28,7 +30,15 @@ enum Command {
 
 #[tokio::main]
 async fn main() {
+    if let Err(error) = plumb::identity!("ENSIGN") {
+        eprintln!("ensign-api: {error}");
+        exit(1);
+    }
     let cli = Cli::parse();
+    if let Err(error) = plumb::identity::ready() {
+        eprintln!("ensign-api: {error}");
+        exit(1);
+    }
     let _stamp = cli.stamp;
     match cli.command {
         Some(Command::Bootstrap { root, artifacts }) => api::bootstrap(&root, &artifacts).await,

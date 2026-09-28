@@ -12,7 +12,7 @@ name = "api"
 path = "src/lib.rs"
 
 [[bin]]
-name = "api"
+name = "ensign-api"
 path = "src/main.rs"
 
 [dependencies]
