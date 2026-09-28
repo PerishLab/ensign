@@ -1,8 +1,3 @@
-[[boundary]]
-allow = ["tuple"]
-note = "keel-gate sow and sown take four-position grant tuples; the named Seed crosses here"
-paths = ["crates/api/src/startup/seed.rs"]
-
 [[ban]]
 paths = ["apps/web/src/lib/components/**"]
 syntax = "style"

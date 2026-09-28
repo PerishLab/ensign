@@ -1,6 +1,5 @@
-use super::seed::{Seed, wire};
 use keel::{Core, Op, Wire, form};
-use keel_gate::Gate;
+use keel_gate::{Gate, Seed};
 use std::sync::Arc;
 
 pub struct Berth<'a, W: Wire>(pub &'a Arc<Core<W>>);
@@ -16,7 +15,7 @@ impl<W: Wire + 'static> Berth<'_, W> {
             ));
         }
         let who = svc.to_string();
-        if !gate.sown(&wire(&seeds(&who))).await? {
+        if !gate.sown(&seeds(&who)).await? {
             return Err(keel::adapt::Error::Adapt(
                 "missing ensign bootstrap grants".into(),
             ));
@@ -30,7 +29,7 @@ impl<W: Wire + 'static> Berth<'_, W> {
         let gate = Gate::rise(core.clone(), svc)?.bar("barred");
         gate.seed().await?;
         let who = svc.to_string();
-        gate.sow(&wire(&seeds(&who))).await?;
+        gate.sow(&seeds(&who)).await?;
         Ok((gate, svc))
     }
 
