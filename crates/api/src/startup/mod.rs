@@ -1,5 +1,4 @@
 mod berth;
-mod seed;
 
 pub use berth::Berth;
 
