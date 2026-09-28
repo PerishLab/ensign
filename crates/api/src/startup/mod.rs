@@ -1,9 +1,14 @@
+mod berth;
+mod seed;
+
+pub use berth::Berth;
+
 use crate::artifact::{self, Artifact};
 use crate::config::{self, Hold, Kind, Runtime};
 use crate::door::{
     auth, invite, join, known, login, logout, mint, repass, revive, shown, token, untoken, who,
 };
-use crate::{Berth, Booth, oidc, shape};
+use crate::{Booth, oidc, shape};
 use axum::Router;
 use axum::routing::{get, post};
 use keel::adapt::db::Sqlite;
