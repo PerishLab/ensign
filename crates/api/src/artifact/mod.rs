@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
-use std::fs::OpenOptions;
-use std::io::{ErrorKind, Write};
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
+mod disk;
 mod seal;
 
 #[derive(Clone, Debug)]
@@ -35,32 +35,7 @@ impl Artifact {
             Artifact::Sealed(name) => return seal::keep(name, bytes),
             Artifact::Kept(path) => path,
         };
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).map_err(|err| {
-                format!(
-                    "cannot prepare artifact destination {}: {err}",
-                    path.display()
-                )
-            })?;
-        }
-        let mut options = OpenOptions::new();
-        options.write(true).create_new(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
-            options.mode(0o600);
-        }
-        let mut file = match options.open(path) {
-            Ok(file) => file,
-            Err(err) if err.kind() == ErrorKind::AlreadyExists => return Ok(false),
-            Err(err) => {
-                return Err(format!("cannot create artifact {}: {err}", path.display()));
-            }
-        };
-        file.write_all(bytes)
-            .and_then(|_| file.sync_all())
-            .map_err(|err| format!("cannot keep artifact {}: {err}", path.display()))?;
-        Ok(true)
+        disk::keep(path, bytes)
     }
 }
 
