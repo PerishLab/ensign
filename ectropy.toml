@@ -1,3 +1,8 @@
+[[boundary]]
+paths = ["crates/api/src/lib.rs"]
+allow = ["tuple"]
+note = "Keel Gate's sow and sown APIs require four-position grant tuples"
+
 [[ban]]
 paths = ["apps/web/src/lib/components/**"]
 syntax = "style"
