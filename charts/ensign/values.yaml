@@ -7,8 +7,9 @@ api:
   pullPolicy: IfNotPresent
   # Keep at 1. keel caches grant rows per engine instance, so a second
   # api pod keeps honouring a grant this one revoked until it writes.
-  # Raising this needs the keel cache off first — see keel docs/run/cache.md
-  # "Authority is cached too" (H-8).
+  # Raising this needs the keel cache off first. keel's AGENTS.md owns the
+  # cache law; its former docs/run/cache.md ("Authority is cached too", H-8)
+  # was retired in keel e647292.
   replicas: 1
   port: 3500
 # Public https API root ensign issues tokens under, including /api. MUST be set:
