@@ -8,12 +8,19 @@ codehull rides the same rails. The laws of the engine live in
 
 ## Layout
 
-- `crates/api` — the server; the keel caller (bin `api`, staged and shipped
-  as `ensign-api`).
+- `crates/api` — the server; the keel caller (package `api`, bin
+  `ensign-api`).
 - `crates/cli` — the client (bin `ensign`); the anchor crate bearing the
   repository name.
-- `charts/ensign` — the helm delivery.
-- `deploy` — the runtime image and the compose surface.
+- `charts/ensign` — the helm delivery; it declares version `0.0.0` and wharf
+  stamps the release marker onto it. Its ConfigMap supplies `ensign.toml`.
+- `Containerfile` — the server image. Its build context is only this file and
+  an `ensign-api` binary beside it; it bakes in no configuration.
+- `deploy` — the local compose surface and its `ensign.toml`. Build with
+  `cargo build --release --locked --bin ensign-api`, copy
+  `target/release/ensign-api` to the repository root (ignored), then
+  `docker compose -f deploy/compose.yml up --build`. A `bootstrap` service
+  runs first and keeps sudo in a volume the `api` service never mounts.
 - `apps/web` — a placeholder `index.html` only. The web plane is deferred,
   not deleted; the seat is held so the delivery paradigm can return without
   re-litigating its place. The pnpm workspace files stay for the same reason.
@@ -23,12 +30,10 @@ Plumb's pre-commit guard proves every commit against its exact staged tree,
 and `plumb guard .` shows what it runs. `helm lint` and the acts are run by
 hand when a change touches the chart or the delivery.
 
-Two wrappers remain under `.runseal/wrappers`: `act.ts` is the acts harness,
-and `ship.ts` currently builds and pushes the api image and the chart. That
-is the tree today, not a settled assignment — where `ship.ts` belongs is
-`ensign-codehull-closure` D2, still open. The generic guard, init and land
-wrappers and the repository-owned Git hooks are gone — Runseal 0.14 stopped
-hosting them and Plumb 0.18.6 admitted the wrapperless shape.
+One wrapper remains under `.runseal/wrappers`: `act.ts`, the acts harness.
+The generic guard, init and land wrappers and the repository-owned Git hooks
+are gone — Runseal 0.14 stopped hosting them and Plumb 0.18.6 admitted the
+wrapperless shape.
 
 ## Product stance
 
@@ -68,9 +73,9 @@ hosting them and Plumb 0.18.6 admitted the wrapperless shape.
   Plumb owns repository shape and the canonical `ectropy.toml`. Vocabulary is
   expressed by the executable source and checked by Ectropy.
 - Dependency direction: ensign -> keel-gate -> keel, plus plumb for the
-  config mechanism and the build version stamp only (never its vocabulary).
+  config mechanism and the release identity only (never its vocabulary).
   Never a workspace sibling of keel; distribution follows keel's channel.
-- Runtime env rides the cascade under the binary's own `API_` prefix
+- Runtime env rides the cascade under the `api` package's `API_` prefix
   (`API_STORE_KIND` / `API_STORE_URL` / `API_STORE_PATH` / `API_FRESH` /
   `API_ISS`); the port override is keel's `KEEL_LISTEN_PORT`, translated
   from `SIDECAR_PORT` in `sidecar.toml`, never read in product code.
@@ -79,13 +84,21 @@ hosting them and Plumb 0.18.6 admitted the wrapperless shape.
 - Never commit on `main`. Branch, let the guard prove the commit, then land it
   with `plumb land`. A landed seat is retired immediately.
 - Releases run through Plumb and wharf, never by hand. `plumb.toml` declares
-  the product, its authority, the `ensign` CLI and its skill; the `api` server,
-  its image and the chart are not released yet. `plumb release open` cuts
+  the product, its authority, its skill, and two executables: the `ensign`
+  CLI, installed on every target, and the `ensign-api` server, linux only and
+  never installed. The server is placed in the image
+  `ghcr.io/perishlab/ensign:<version>` built from the root `Containerfile`,
+  and the chart is published as `oci://ghcr.io/perishlab/charts/ensign`, both
+  under the same marker as the CLI. `plumb release open` cuts
   `release/<version>` from a guarded `main`, `plumb release stamp` marks it,
-  and `plumb ship dispatch` hands the marker to wharf, which binds and
-  publishes the CLI. Each stable owes its changelog and its skill, written for
-  it and consigned with `plumb depot consign --kind changelog|skill --dir`;
-  `plumb release owed` lists what is still owed.
+  and `plumb ship dispatch` hands the marker to wharf, which binds both
+  executables and publishes the archives, the image and the chart. Both
+  executables call `plumb::identity!("ENSIGN")` and print `<binary> <marker>`
+  from `--version`; an unbound `ensign-api` answers `--version` and refuses
+  every other operation. Each stable owes its changelog and its skill,
+  written for it and consigned with
+  `plumb depot consign --kind changelog|skill --dir`; `plumb release owed`
+  lists what is still owed.
 
 For local development, `sidecar start|status|stop` owns the API/Web topology.
 The CLI receives the explicit API root, including `/api`, through `ENSIGN_URL`.

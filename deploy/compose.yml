@@ -11,19 +11,44 @@ services:
       interval: 2s
       timeout: 3s
       retries: 20
+  bootstrap:
+    image: ensign-api:dev
+    build:
+      context: ..
+      dockerfile: Containerfile
+    environment:
+      API_STORE_KIND: "pg"
+      API_STORE_URL: "host=pg port=5432 user=ensign password=ensign dbname=ensign"
+      API_ISS: "http://localhost:8890/api"
+    command:
+      - bootstrap
+      - /ensign
+      - --artifact
+      - sudo=file:/ensign/sudo
+      - --artifact
+      - signing=file:/ensign/.local/sign.pem
+    volumes:
+      - custody:/ensign
+      - ./ensign.toml:/ensign/ensign.toml:ro
+      - sign:/ensign/.local
+    depends_on:
+      pg:
+        condition: service_healthy
   api:
     image: ensign-api:dev
     environment:
       API_STORE_KIND: "pg"
       API_STORE_URL: "host=pg port=5432 user=ensign password=ensign dbname=ensign"
       API_ISS: "http://localhost:8890/api"
-    command: ["serve", "/ensign"]
+    command: ["serve", "/ensign", "--artifact", "signing=file:/ensign/.local/sign.pem"]
     ports:
       - "8890:3500"
     volumes:
+      - ./ensign.toml:/ensign/ensign.toml:ro
       - sign:/ensign/.local
     depends_on:
-      pg:
-        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
 volumes:
   sign:
+  custody:

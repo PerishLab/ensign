@@ -3,7 +3,7 @@
 [[layout.seat]]
 path = "crates/*"
 anchor = ["Cargo.toml"]
-note = "The api server, a keel caller, and the ensign CLI."
+note = "The ensign-api server, a keel caller, and the ensign CLI."
 
 [[layout.seat]]
 path = "apps/*"
@@ -12,7 +12,7 @@ note = "The deferred web plane; the seat is held so the delivery paradigm can re
 
 [[layout.seat]]
 path = "deploy"
-note = "The runtime image and the compose surface."
+note = "The local compose surface and its configuration."
 
 [[layout.seat]]
 path = ".cargo"
@@ -20,7 +20,7 @@ note = "Cargo registry configuration."
 
 [[layout.seat]]
 path = ".runseal"
-note = "Committed Runseal resources and the two remaining wrappers."
+note = "Committed Runseal resources and the acts harness."
 
 [[layout.file]]
 name = ["Cargo.toml", "Cargo.lock", "rust-toolchain.toml"]
@@ -35,16 +35,35 @@ name = ["DESIGN.md"]
 note = "Identity-resource and ceremony doctrine."
 
 [[layout.file]]
+name = ["Containerfile"]
+note = "The ensign-api image wharf builds; it bakes in no configuration."
+
+[[layout.file]]
 name = ["ensign.toml", "docker-compose.yml", ".dockerignore"]
 note = "Local runtime configuration and the compose entry."
 
 [release]
 product = "ensign"
 authority = "https://releases.ensign.perish.uk"
-binaries = ["ensign"]
+binaries = ["ensign", "ensign-api"]
 targets = [
   "x86_64-unknown-linux-gnu",
   "aarch64-apple-darwin",
   "x86_64-pc-windows-msvc",
 ]
 skill = true
+
+[release.binary.ensign-api]
+targets = ["x86_64-unknown-linux-gnu"]
+install = false
+
+[release.oci]
+registry = "ghcr.io"
+image = "perishlab/ensign"
+account = "PerishLab"
+binary = "ensign-api"
+
+[release.chart]
+registry = "ghcr.io"
+chart = "perishlab/ensign"
+account = "PerishLab"
