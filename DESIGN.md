@@ -52,3 +52,12 @@ Authorization codes and future ceremony challenges are in-process ephemera,
 not Keel rows. Durable credentials use leased rows; protocol ephemera die with
 the process. Bearer material comes from the operating system CSPRNG and is
 never printed or persisted in authored configuration.
+
+## Guidance
+
+The installed `ensign` client owns managed product guidance and exact
+code-addressed recovery. Its Skill keeps durable identity doctrine and routes
+to authorities; it does not copy command grammar. The client help owns client
+grammar, `ensign-api --help` remains the server grammar authority, and only
+bootstrap or signing failures that require custody judgment name Cookbook
+codes. Routine refusals stay self-contained.

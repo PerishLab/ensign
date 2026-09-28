@@ -1,3 +1,4 @@
+use crate::recovery;
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as B64;
 use jsonwebtoken::{DecodingKey, EncodingKey};
@@ -13,16 +14,17 @@ pub(crate) struct Keys {
 pub(crate) fn keys(artifact: &crate::artifact::Artifact) -> Result<Keys, String> {
     let held = artifact
         .load()?
-        .ok_or_else(|| "signing artifact is absent".to_string())?;
+        .ok_or_else(|| recovery::note("signing artifact is absent", recovery::SIGNING))?;
     read(&held)
 }
 
 fn read(bytes: &[u8]) -> Result<Keys, String> {
     use p256::SecretKey;
     use p256::pkcs8::DecodePrivateKey;
-    let pem = std::str::from_utf8(bytes).map_err(|_| "signing artifact is not text".to_string())?;
-    let secret =
-        SecretKey::from_pkcs8_pem(pem).map_err(|_| "malformed signing artifact".to_string())?;
+    let pem = std::str::from_utf8(bytes)
+        .map_err(|_| recovery::note("signing artifact is not text", recovery::SIGNING))?;
+    let secret = SecretKey::from_pkcs8_pem(pem)
+        .map_err(|_| recovery::note("malformed signing artifact", recovery::SIGNING))?;
     shape(secret)
 }
 
@@ -32,8 +34,7 @@ pub(crate) fn provision(artifact: &crate::artifact::Artifact) -> Result<Keys, St
     use p256::pkcs8::EncodePrivateKey;
     use p256::pkcs8::LineEnding;
     if let Some(held) = artifact.load()? {
-        return read(&held)
-            .map_err(|note| format!("signing artifact is inaccessible or malformed: {note}"));
+        return read(&held);
     }
     let secret = SecretKey::generate();
     let pem = secret
