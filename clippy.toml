@@ -1,0 +1,3 @@
+disallowed-methods = [
+    { path = "keel::Core::sudo", reason = "ambient sudo is admitted only for identity birth in door/mod.rs" },
+]
