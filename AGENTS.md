@@ -122,6 +122,13 @@ The CLI receives the explicit API root, including `/api`, through `ENSIGN_URL`.
   `helm template` are both silent about a second `randAlphaNum` call.
 - Every retained artifact carries `helm.sh/resource-policy: keep`, so deleting
   one is a deliberate human act. The chart deploys no web plane.
-- `crates/api/tests/{law,bootstrap}.rs` mechanize grant vocabulary, the
-  `.sudo()` exception, `serve` refusing a `sudo` artifact, and the replay
-  table. Run the suite instead of restating its verdicts.
+- `crates/api/tests/bootstrap.rs` mechanizes `serve` refusing a `sudo`
+  artifact and the replay table. Run the suite instead of restating its
+  verdicts.
+- The `.sudo()` exception is a clippy refusal: `clippy.toml` disallows
+  `keel::Core::sudo`, and only the identity-birth site in
+  `crates/api/src/door/mod.rs` allows it. Tests that tamper with state allow
+  it per test.
+- Ensign never builds a grant from the `"@grant"` string. Keel still accepts
+  one, so this rule is stated here until PerishLab/keel#13 makes grant
+  construction typed only.

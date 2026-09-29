@@ -23,8 +23,8 @@ path = ".runseal"
 note = "Committed Runseal resources and the acts harness."
 
 [[layout.file]]
-name = ["Cargo.toml", "Cargo.lock", "rust-toolchain.toml"]
-note = "Rust workspace anchors and the toolchain wharf builds with."
+name = ["Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "clippy.toml"]
+note = "Rust workspace anchors, the toolchain wharf builds with, and the clippy method bans."
 
 [[layout.file]]
 name = ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "biome.json"]
