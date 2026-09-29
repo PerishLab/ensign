@@ -58,3 +58,9 @@ include = [
 
 [word]
 single = true
+
+[[grant]]
+paths = [
+    "crates/cli/src/cookbook.rs",
+]
+syntax = "embed"
