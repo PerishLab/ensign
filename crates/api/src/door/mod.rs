@@ -52,6 +52,7 @@ pub(crate) async fn join<W: Wire + 'static>(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    #[allow(clippy::disallowed_methods)]
     let made = booth
         .core
         .sudo()

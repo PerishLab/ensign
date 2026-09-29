@@ -106,6 +106,7 @@ async fn rig() -> (Booth<Faint>, Arc<AtomicBool>) {
 }
 
 #[tokio::test]
+#[allow(clippy::disallowed_methods)]
 async fn frozen() {
     let (core, _live) = core().await;
     api::Berth(&core).seed().await.expect("seed");
