@@ -1,5 +1,10 @@
 # Agents
 
+Read the canonical [PerishLab delivery governance](https://github.com/PerishLab/.github/blob/main/GOVERNANCE.md)
+at work start and again before delivery or Issue closure. That document owns
+organization-wide Issue, pull-request and acceptance policy; this file keeps
+repository-specific constraints without copying that policy.
+
 This repository is a keel **caller**: ensign, the identity product —
 an authentik-shaped IdP built purely on keel. It validates the whole
 delivery framework (version train, acts, release lane, ship) before
