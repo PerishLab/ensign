@@ -1693,9 +1693,9 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
 name = "plumb"
-version = "0.83.0"
+version = "0.84.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "64dc20cf61043f02180a7a07d7cbd19e1ff327f48f5437ec40a747a47e36fd36"
+checksum = "d9e0a7de7a48bd75dca307ad3748ddff2e251259011bda88ff1d62c7284e0c3e"
 dependencies = [
  "base64",
  "clap",
@@ -1718,9 +1718,9 @@ dependencies = [
 
 [[package]]
 name = "plumb-macro"
-version = "0.83.0"
+version = "0.84.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "44de1bb1dcfa3ca931b18dd75de1a1e3d3236b86280c2ac31c0fd4f1eb4ddffc"
+checksum = "2b859402b529cb5c4421779821a470e8936a35300d514d7b78927f1d47d09b44"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2483,7 +2483,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
