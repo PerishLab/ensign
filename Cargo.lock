@@ -76,6 +76,7 @@ dependencies = [
  "jsonwebtoken",
  "keel",
  "keel-gate",
+ "locus",
  "p256 0.14.0",
  "password-hash",
  "plumb",

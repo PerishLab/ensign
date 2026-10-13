@@ -13,9 +13,10 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "ensign-api"
-path = "src/main.rs"
+path = "src/entry/main.rs"
 
 [dependencies]
+locus.workspace = true
 clap = { workspace = true }
 argon2 = { workspace = true }
 password-hash = { workspace = true }
