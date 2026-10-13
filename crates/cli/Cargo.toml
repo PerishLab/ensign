@@ -12,7 +12,12 @@ name = "ensign"
 path = "src/main.rs"
 
 [dependencies]
+locus.workspace = true
+serde.workspace = true
 clap = { workspace = true }
 plumb = { workspace = true, features = ["skill"] }
 serde_json = { workspace = true }
 ureq = { workspace = true }
+
+[dev-dependencies]
+tempfile.workspace = true

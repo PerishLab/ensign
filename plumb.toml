@@ -42,8 +42,10 @@ note = "The ensign-api image wharf builds; it bakes in no configuration."
 name = ["ensign.toml", "docker-compose.yml", ".dockerignore"]
 note = "Local runtime configuration and the compose entry."
 
+[identity]
+ns = "ensign"
+
 [release]
-product = "ensign"
 authority = "https://releases.ensign.perish.uk"
 binaries = ["ensign", "ensign-api"]
 targets = [

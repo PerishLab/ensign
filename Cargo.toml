@@ -9,6 +9,8 @@ license = "MIT"
 repository = "https://github.com/PerishLab/ensign"
 
 [workspace.dependencies]
+locus = { version = "0", registry = "perish" }
+tempfile = "3"
 clap = { version = "4", features = ["derive"] }
 argon2 = { version = "0.5", features = ["std"] }
 password-hash = { version = "0.5", features = ["getrandom"] }
