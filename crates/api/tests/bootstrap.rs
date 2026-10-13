@@ -33,6 +33,11 @@ impl Drop for Nest {
 
 fn bootstrap(root: &Path, sudo: &Path, signing: &Path) -> Output {
     Command::new(env!("CARGO_BIN_EXE_ensign-api"))
+        .env_clear()
+        .env("HOME", root)
+        .env("USERPROFILE", root)
+        .env("LOCALAPPDATA", root)
+        .env("ENSIGN_HOME", root)
         .arg("bootstrap")
         .arg(root)
         .arg("--artifact")
@@ -114,6 +119,11 @@ fn malformed() {
 
 fn spawn(root: &Path, sudo: &Path, signing: &Path) -> Child {
     Command::new(env!("CARGO_BIN_EXE_ensign-api"))
+        .env_clear()
+        .env("HOME", root)
+        .env("USERPROFILE", root)
+        .env("LOCALAPPDATA", root)
+        .env("ENSIGN_HOME", root)
         .arg("bootstrap")
         .arg(root)
         .arg("--artifact")
@@ -192,6 +202,11 @@ fn contended() {
 
 fn runtime(root: &Path, sudo: &Path, signing: &Path) -> Child {
     Command::new(env!("CARGO_BIN_EXE_ensign-api"))
+        .env_clear()
+        .env("HOME", root)
+        .env("USERPROFILE", root)
+        .env("LOCALAPPDATA", root)
+        .env("ENSIGN_HOME", root)
         .arg("serve")
         .arg(root)
         .arg("--artifact")
@@ -238,3 +253,6 @@ fn forbidden() {
         "serve exited for the wrong reason: {note}"
     );
 }
+
+#[path = "bootstrap/observation.rs"]
+mod observation;
