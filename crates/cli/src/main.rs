@@ -1,6 +1,7 @@
 mod config;
 mod cookbook;
 mod deed;
+mod observation;
 mod skill;
 mod wire;
 
@@ -48,6 +49,49 @@ fn main() {
         eprintln!("ensign: {error}");
         exit(1);
     }
+    let observer = observation::Run::start(name(verb));
+    let code = execute(&args);
+    if let Some(observer) = observer {
+        observer.finish(code);
+    }
+    if code != 0 {
+        exit(code);
+    }
+}
+
+fn name(verb: &str) -> &'static str {
+    match verb {
+        "--version" | "-V" => "version",
+        "login" => "login",
+        "logout" => "logout",
+        "whoami" => "whoami",
+        "invite" => "invite",
+        "crown" => "crown",
+        "join" => "join",
+        "recover" => "recover",
+        "actors" => "actors",
+        "teams" => "teams",
+        "team" => "team",
+        "apps" => "apps",
+        "app" => "app",
+        "cookbook" => "cookbook",
+        "skill" => "skill",
+        _ => "help",
+    }
+}
+
+#[locus::trace(with = observation::view())]
+fn execute(args: &[String]) -> i32 {
+    let verb = args.first().map(String::as_str).unwrap_or("help");
+    if verb == "skill" {
+        return match managed(&args[args.len().min(1)..]) {
+            Ok(code) => code,
+            Err(note) => {
+                eprintln!("ensign: {note}");
+                1
+            }
+        };
+    }
     let rest = Rest(&args[args.len().min(1)..]);
     let done = match verb {
         "--version" | "-V" => stamp(),
@@ -64,12 +108,14 @@ fn main() {
         "apps" => list("App", &["name", "slug", "mode"]),
         "app" => rest.app(),
         "cookbook" => recovery(&args[args.len().min(1)..]),
-        "skill" => managed(&args[args.len().min(1)..]),
         _ => usage(),
     };
-    if let Err(note) = done {
-        eprintln!("ensign: {note}");
-        exit(1);
+    match done {
+        Ok(()) => 0,
+        Err(note) => {
+            eprintln!("ensign: {note}");
+            1
+        }
     }
 }
 
@@ -94,22 +140,18 @@ fn recovery(args: &[String]) -> Reply {
     Ok(())
 }
 
-fn managed(args: &[String]) -> Reply {
+fn managed(args: &[String]) -> Result<i32, String> {
     let cli = match Skill::try_parse_from(
         std::iter::once("ensign skill".to_string()).chain(args.iter().cloned()),
     ) {
         Ok(cli) => cli,
         Err(error) if error.kind() == ErrorKind::DisplayHelp => {
             error.print().map_err(|held| held.to_string())?;
-            return Ok(());
+            return Ok(0);
         }
         Err(error) => return Err(error.to_string()),
     };
-    let code = skill::run(cli.deed);
-    if code != 0 {
-        exit(code);
-    }
-    Ok(())
+    Ok(skill::run(cli.deed))
 }
 
 fn usage() -> Reply {
@@ -131,5 +173,12 @@ fn usage() -> Reply {
     eprintln!("  app <name> <slug> <home> <redirect>   register an oidc app");
     eprintln!("  cookbook [code]      read exact complex recovery");
     eprintln!("  skill <operation>    manage installed Ensign Skills");
+    eprintln!();
+    eprintln!(
+        "Observation is off by default. Set [locus] enabled = true in config.toml under ENSIGN_HOME or the platform ensign data home (~/.ensign on Unix, LOCALAPPDATA/ensign on Windows)."
+    );
+    eprintln!(
+        "endpoint overrides LOCUS_API, then http://127.0.0.1:43308; buffer is state/locus. Configuration is separate from state/pat.json and observation failures preserve client state and exit status."
+    );
     Ok(())
 }

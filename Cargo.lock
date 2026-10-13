@@ -711,8 +711,11 @@ name = "ensign"
 version = "0.0.0"
 dependencies = [
  "clap",
+ "locus",
  "plumb",
+ "serde",
  "serde_json",
+ "tempfile",
  "ureq",
 ]
 
@@ -729,7 +732,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1303,9 +1306,9 @@ dependencies = [
 
 [[package]]
 name = "keel"
-version = "0.13.0"
+version = "0.16.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "e61cb2ee6f8765eba67f0aa74c78773980334e836e101440f70a7aa7542ae49e"
+checksum = "c8943e6838498fb41e0765550c976f40f850a05ab7efaadab062013cafce9e20"
 dependencies = [
  "axum",
  "getrandom 0.3.4",
@@ -1314,14 +1317,15 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "sqlx",
+ "sqlx-core",
  "tokio",
 ]
 
 [[package]]
 name = "keel-gate"
-version = "0.13.0"
+version = "0.16.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "94f00b7a381030f08d0d5b97176b69a0e27e3c6d3e02e8ac5ec1beb23f56c0b8"
+checksum = "dbf3b03c1ff5d2475527fe8a73ece5763e475f7a6619091a94b7c6f48d1b28e9"
 dependencies = [
  "axum",
  "getrandom 0.3.4",
@@ -1332,9 +1336,9 @@ dependencies = [
 
 [[package]]
 name = "keel-macro"
-version = "0.13.0"
+version = "0.16.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "071c991b980d9b6e0f07f10c799f2a6d7370bfea70efa59e82780d7e38e86709"
+checksum = "c93c98c344680e79bbf41e4f63e2a77f2bca4af15028412fc3d05098241245a6"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1398,6 +1402,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "224399e74b87b5f3557511d98dff8b14089b3dadafcab6bb93eab67d3aace965"
 dependencies = [
  "scopeguard",
+]
+
+[[package]]
+name = "locus"
+version = "0.8.0"
+source = "sparse+https://cargo.perish.uk/"
+checksum = "78e1d2abd8dd7aedb88a81af37be2007d1f2f3db5db9fcc45a9e0472a2e9938a"
+dependencies = [
+ "getrandom 0.3.4",
+ "locus-macro",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "locus-macro"
+version = "0.8.0"
+source = "sparse+https://cargo.perish.uk/"
+checksum = "0855db4132cf3a0ad39ae14c5a608ef3ac6f951c5a5765e1e2c0fd448f29ab47"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -1693,9 +1720,9 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
 name = "plumb"
-version = "0.84.0"
+version = "0.95.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "d9e0a7de7a48bd75dca307ad3748ddff2e251259011bda88ff1d62c7284e0c3e"
+checksum = "e2e79b22e1fe8fd143aa069b16f1380fad719cc6d20a6621e01e19832a8d1245"
 dependencies = [
  "base64",
  "clap",
@@ -1718,9 +1745,9 @@ dependencies = [
 
 [[package]]
 name = "plumb-macro"
-version = "0.84.0"
+version = "0.95.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "2b859402b529cb5c4421779821a470e8936a35300d514d7b78927f1d47d09b44"
+checksum = "6fc75f388d9bb1b826c986c5f1d0dd973347cc33d069356a8b123893d1461505"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1947,7 +1974,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2486,7 +2513,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
