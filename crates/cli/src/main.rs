@@ -108,7 +108,15 @@ fn execute(args: &[String]) -> i32 {
         "apps" => list("App", &["name", "slug", "mode"]),
         "app" => rest.app(),
         "cookbook" => recovery(&args[args.len().min(1)..]),
-        _ => usage(),
+        "help" | "--help" | "-h" => {
+            usage();
+            Ok(())
+        }
+        _ => {
+            eprintln!("ensign: unrecognized command '{verb}'");
+            usage();
+            return 2;
+        }
     };
     match done {
         Ok(()) => 0,
@@ -154,7 +162,7 @@ fn managed(args: &[String]) -> Result<i32, String> {
     Ok(skill::run(cli.deed))
 }
 
-fn usage() -> Reply {
+fn usage() {
     eprintln!("ensign — a client for the ensign identity provider");
     eprintln!();
     eprintln!("  login <login>        sign in; reads the password from stdin");
@@ -180,5 +188,4 @@ fn usage() -> Reply {
     eprintln!(
         "endpoint overrides LOCUS_API, then http://127.0.0.1:43308; buffer is state/locus. Configuration is separate from state/pat.json and observation failures preserve client state and exit status."
     );
-    Ok(())
 }
