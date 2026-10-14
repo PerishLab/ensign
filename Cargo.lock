@@ -733,7 +733,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1407,9 +1407,9 @@ dependencies = [
 
 [[package]]
 name = "locus"
-version = "0.8.0"
+version = "0.9.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "78e1d2abd8dd7aedb88a81af37be2007d1f2f3db5db9fcc45a9e0472a2e9938a"
+checksum = "a2ab8aa52e8f53fc9e69079c97850b0fb6c4c43c7e30f1aa78ee8a439fb6d736"
 dependencies = [
  "getrandom 0.3.4",
  "locus-macro",
@@ -1419,9 +1419,9 @@ dependencies = [
 
 [[package]]
 name = "locus-macro"
-version = "0.8.0"
+version = "0.9.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "0855db4132cf3a0ad39ae14c5a608ef3ac6f951c5a5765e1e2c0fd448f29ab47"
+checksum = "20e48f6bf77a9ce1044ce242a1467b170c0bca77c870d98fd3f235ed5b00d431"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1721,9 +1721,9 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
 name = "plumb"
-version = "0.95.0"
+version = "0.99.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "e2e79b22e1fe8fd143aa069b16f1380fad719cc6d20a6621e01e19832a8d1245"
+checksum = "b7454dc608be812ecc2ac6eab2b83ed44930cf1d2b66fd43573dd298824930bb"
 dependencies = [
  "base64",
  "clap",
@@ -1746,9 +1746,9 @@ dependencies = [
 
 [[package]]
 name = "plumb-macro"
-version = "0.95.0"
+version = "0.99.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "6fc75f388d9bb1b826c986c5f1d0dd973347cc33d069356a8b123893d1461505"
+checksum = "6cd4baa0c979c71391f1a9babb8791eae2227a244a9555b2c1af845a8e60b896"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1975,7 +1975,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2514,7 +2514,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
