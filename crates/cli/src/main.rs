@@ -49,7 +49,7 @@ fn main() {
         eprintln!("ensign: {error}");
         exit(1);
     }
-    let observer = observation::Run::start(name(verb));
+    let observer = observation::start(name(verb));
     let code = execute(&args);
     if let Some(observer) = observer {
         observer.finish(code);
@@ -80,7 +80,7 @@ fn name(verb: &str) -> &'static str {
     }
 }
 
-#[locus::trace(with = observation::view())]
+#[locus::trace(with = plumb::observation::view())]
 fn execute(args: &[String]) -> i32 {
     let verb = args.first().map(String::as_str).unwrap_or("help");
     if verb == "skill" {

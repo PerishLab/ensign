@@ -42,19 +42,30 @@ async fn main() {
     }
     let _stamp = cli.stamp;
     match cli.command {
-        Some(Command::Bootstrap { root, artifacts }) => {
-            let observer = observation::Run::start("api.bootstrap");
-            bootstrap(&root, &artifacts, observer.as_ref()).await;
-            if let Some(observer) = observer {
-                observer.finish(0);
-            }
-        }
+        Some(Command::Bootstrap { root, artifacts }) => seal(&root, &artifacts).await,
         Some(Command::Serve { root, artifacts }) => api::serve(&root, &artifacts).await,
         None => api::serve(&cli.root, &[]).await,
     }
 }
 
-#[locus::trace(with = observer.map(observation::Run::view))]
-async fn bootstrap(root: &str, artifacts: &[String], observer: Option<&observation::Run>) {
-    api::bootstrap(root, artifacts).await;
+async fn seal(root: &str, artifacts: &[String]) {
+    let observer = observation::start("api.bootstrap");
+    let code = match bootstrap(root, artifacts).await {
+        Ok(()) => 0,
+        Err(note) => {
+            eprintln!("ensign: {note}");
+            1
+        }
+    };
+    if let Some(observer) = observer {
+        observer.finish(code);
+    }
+    if code != 0 {
+        exit(code);
+    }
+}
+
+#[locus::trace(with = plumb::observation::view())]
+async fn bootstrap(root: &str, artifacts: &[String]) -> Result<(), String> {
+    api::bootstrap(root, artifacts).await
 }

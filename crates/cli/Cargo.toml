@@ -15,7 +15,7 @@ path = "src/main.rs"
 locus.workspace = true
 serde.workspace = true
 clap = { workspace = true }
-plumb = { workspace = true, features = ["skill"] }
+plumb = { workspace = true, features = ["skill", "observation"] }
 serde_json = { workspace = true }
 ureq = { workspace = true }
 
