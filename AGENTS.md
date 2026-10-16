@@ -32,13 +32,15 @@ keel's `AGENTS.md` and source; this repo obeys them from the outside.
 - `DESIGN.md` — current identity-resource and ceremony doctrine.
 
 Plumb's pre-commit guard proves every commit against its exact staged tree,
-and `plumb guard .` shows what it runs. `helm lint` and the acts are run by
-hand when a change touches the chart or the delivery.
+and `plumb guard .` shows what it runs. `helm lint` is run by hand when a
+change touches the chart or the delivery.
 
-One wrapper remains under `.runseal/wrappers`: `act.ts`, the acts harness.
-The generic guard, init and land wrappers and the repository-owned Git hooks
-are gone — Runseal 0.14 stopped hosting them and Plumb 0.18.6 admitted the
-wrapperless shape.
+The acts are ordinary Rust integration tests that serve the real binary:
+`crates/api/tests/acceptance` covers the identity floor, grants, OIDC and
+forward-auth, and `crates/cli/tests/acceptance` drives the `ensign` CLI
+against `ensign-api`. Set `API_STORE_URL` to run them on Postgres. The
+repository keeps no `.runseal/` directory: the acts harness, the generic
+guard, init and land wrappers and the repository-owned Git hooks are gone.
 
 ## Product stance
 
