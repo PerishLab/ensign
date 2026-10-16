@@ -15,6 +15,7 @@ mod recovery {
 
     pub(crate) fn note(text: impl AsRef<str>, raw: &'static str) -> String {
         let code = Code::new(raw).expect("valid recovery code");
+        plumb::observation::fault(raw);
         format!("{}; see: ensign cookbook {code}", text.as_ref())
     }
 }

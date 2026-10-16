@@ -72,14 +72,17 @@ fn buffered() {
             .iter()
             .filter(|a| a["source"]["edge"] == "return")
             .count(),
-        2
+        3
     );
-    assert_eq!(
-        atoms
+    let finish: Vec<&Value> = atoms
+        .iter()
+        .filter(|a| a["payload"]["event"] == "cli.finish")
+        .collect();
+    assert_eq!(finish.len(), 3);
+    assert!(
+        finish
             .iter()
-            .filter(|a| a["payload"]["event"] == "cli.finish")
-            .count(),
-        2
+            .all(|a| a["context"].get("ensign.fault").is_none())
     );
     let text = serde_json::to_string(&atoms).unwrap();
     assert!(!text.contains("private-invalid"));
@@ -127,4 +130,23 @@ fn isolated() {
     assert_eq!(out.status.code(), baseline.status.code());
     assert_eq!(out.stdout, baseline.stdout);
     assert!(!out.stderr.is_empty());
+}
+#[test]
+fn faulted() {
+    let nest = Nest::new();
+    let seat = Nest::new();
+    configure(&seat, ENABLED);
+    std::fs::write(nest.path("sign.pem"), "not a private key").unwrap();
+    assert_eq!(run(&nest, &seat, false).status.code(), Some(1));
+    let atoms = records(&seat);
+    let finish: Vec<&Value> = atoms
+        .iter()
+        .filter(|a| a["payload"]["event"] == "cli.finish")
+        .collect();
+    assert_eq!(finish.len(), 1);
+    assert_eq!(finish[0]["payload"]["code"], 1);
+    assert_eq!(
+        finish[0]["context"]["ensign.fault"],
+        "signing.artifact-invalid"
+    );
 }

@@ -19,33 +19,16 @@ use std::sync::Arc;
 
 const PREFIX: &str = "/api";
 
-pub async fn bootstrap(root: &str, specs: &[String]) {
-    let runtime = match config::load(Path::new(root)) {
-        Ok(runtime) => runtime,
-        Err(err) => halt("config", &err.to_string()),
+pub async fn bootstrap(root: &str, specs: &[String]) -> Result<(), String> {
+    let runtime = config::load(Path::new(root)).map_err(|err| format!("config: {err}"))?;
+    let artifacts = artifact::bootstrap(specs).map_err(|err| format!("artifact: {err}"))?;
+    let done = match runtime.store.kind {
+        Kind::Pg => provision(open(&runtime).await, &artifacts).await,
+        Kind::File if runtime.fresh => return Err("fresh: file store wipe is not supported".into()),
+        Kind::File => provision(file(root, &runtime).await, &artifacts).await,
+        Kind::Memory => return Err("store: bootstrap requires a durable store".into()),
     };
-    let artifacts = match artifact::bootstrap(specs) {
-        Ok(artifacts) => artifacts,
-        Err(err) => halt("artifact", &err),
-    };
-    match runtime.store.kind {
-        Kind::Pg => {
-            let store = open(&runtime).await;
-            if let Err(err) = provision(store, &artifacts).await {
-                halt("bootstrap", &err);
-            }
-        }
-        Kind::File => {
-            if runtime.fresh {
-                halt("fresh", "file store wipe is not supported");
-            }
-            let store = file(root, &runtime).await;
-            if let Err(err) = provision(store, &artifacts).await {
-                halt("bootstrap", &err);
-            }
-        }
-        Kind::Memory => halt("store", "bootstrap requires a durable store"),
-    }
+    done.map_err(|err| format!("bootstrap: {err}"))
 }
 
 pub async fn serve(root: &str, specs: &[String]) {

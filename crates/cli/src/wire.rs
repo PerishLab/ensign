@@ -15,7 +15,7 @@ pub(crate) fn call(
     send(verb, url, worn.as_deref(), body)
 }
 
-#[locus::trace(with = crate::observation::view())]
+#[locus::trace(with = plumb::observation::view())]
 pub(crate) fn send(
     verb: &str,
     url: &str,
@@ -73,7 +73,7 @@ pub(crate) fn kept() -> Result<std::path::PathBuf, String> {
     Ok(home()?.join("state").join("pat.json"))
 }
 
-#[locus::trace(with = crate::observation::view())]
+#[locus::trace(with = plumb::observation::view())]
 pub(crate) fn load() -> Option<(String, String)> {
     let text = std::fs::read_to_string(kept().ok()?).ok()?;
     let held: Value = serde_json::from_str(&text).ok()?;
@@ -85,7 +85,7 @@ pub(crate) fn load() -> Option<(String, String)> {
     Some((base, token))
 }
 
-#[locus::trace(with = crate::observation::view())]
+#[locus::trace(with = plumb::observation::view())]
 pub(crate) fn save(base: &str, token: &str) -> Reply {
     let path = kept()?;
     let dir = path
