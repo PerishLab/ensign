@@ -6,6 +6,10 @@ syntax = "style"
 allow = false
 
 [[grant]]
+paths = ["crates/cli/src/cookbook.rs"]
+syntax = "embed"
+
+[[grant]]
 paths = [
     "apps/*/tests/**/*.test.ts",
     "apps/*/tests/**/*.test.tsx",
@@ -58,9 +62,3 @@ include = [
 
 [word]
 single = true
-
-[[grant]]
-paths = [
-    "crates/cli/src/cookbook.rs",
-]
-syntax = "embed"

@@ -18,10 +18,6 @@ note = "The local compose surface and its configuration."
 path = ".cargo"
 note = "Cargo registry configuration."
 
-[[layout.seat]]
-path = ".runseal"
-note = "Committed Runseal resources and the acts harness."
-
 [[layout.file]]
 name = ["Cargo.toml", "Cargo.lock", "clippy.toml"]
 note = "Rust workspace anchors and the clippy method bans."
