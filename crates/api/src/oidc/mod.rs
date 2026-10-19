@@ -6,16 +6,13 @@ mod name;
 mod plain;
 
 pub(crate) use bear::{Bearing, Code, Ward};
-use flow::{authorize, disco, jwks, token, userinfo};
 
 pub(crate) use keys::{Keys, keys, provision};
 
 use crate::util::{Sound, pct};
 use axum::Json;
-use axum::Router;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect, Response};
-use axum::routing::{get, post};
 use jsonwebtoken::{Algorithm, Validation, decode};
 use keel::life::tick;
 use keel::{Core, Op, Wire, form};
@@ -59,16 +56,6 @@ impl<W: Wire + 'static> Oidc<W> {
             iss,
             codes: Arc::new(Mutex::new(HashMap::new())),
         }
-    }
-
-    pub(crate) fn plate(self) -> Router {
-        Router::new()
-            .route("/.well-known/openid-configuration", get(disco::<W>))
-            .route("/.well-known/jwks.json", get(jwks::<W>))
-            .route("/authorize", get(authorize::<W>))
-            .route("/token", post(token::<W>))
-            .route("/userinfo", get(userinfo::<W>))
-            .with_state(self)
     }
 
     async fn open(&self, ask: Ask, actor: i64) -> Response {
