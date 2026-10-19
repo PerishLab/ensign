@@ -4,13 +4,9 @@ pub use berth::Berth;
 
 use crate::artifact::{self, Artifact};
 use crate::config::{self, Hold, Kind, Runtime};
-use crate::door::{
-    auth, invite, join, known, login, logout, mint, repass, revive, shown, token, untoken, who,
-};
 use crate::recovery;
 use crate::{Booth, oidc, shape};
 use axum::Router;
-use axum::routing::{get, post};
 use keel::adapt::db::Sqlite;
 use keel::adapt::pg::Postgres;
 use keel::{Core, Status, Wire, app, bind};
@@ -163,20 +159,7 @@ async fn listen<W: Wire + 'static>(core: Arc<Core<W>>, runtime: &Runtime, signin
         false => runtime.iss.trim_end_matches('/').to_string(),
     };
     let booth = Booth::new(core.clone(), door.clone(), svc, iss.starts_with("https://"));
-    let plate = Router::new()
-        .route("/invite", post(invite::<W>))
-        .route("/join", post(join::<W>))
-        .route("/login", post(login::<W>))
-        .route("/logout", post(logout::<W>))
-        .route("/whoami", get(who::<W>))
-        .route("/profile/{sub}", get(shown::<W>))
-        .route("/handle/{handle}", get(known::<W>))
-        .route("/auth", get(auth::<W>))
-        .route("/mint", post(mint::<W>))
-        .route("/repass", post(repass::<W>))
-        .route("/revive", post(revive::<W>))
-        .route("/bearer", post(token::<W>).delete(untoken::<W>))
-        .with_state(booth);
+    let plate = booth.plate();
     let keys = match oidc::keys(signing) {
         Ok(keys) => keys,
         Err(err) => halt("signing", &err),
