@@ -2,6 +2,9 @@
 # which a Runseal lane profile supplies. A lane holds nothing precious:
 # `down -v` then `up` rebuilds it, sudo and signing key included. Nothing
 # publishes a host port: reach a lane with `exec` or the `tools` profile.
+# Only `api` joins the shared lane network, as api.ensign.internal; create
+# it once per lane with `docker network create --label perish.owner=perish
+# --label perish.lane=<lane> perish-<lane>`.
 name: ensign-${PERISH_LANE:-main}
 
 x-lane: &lane
@@ -34,7 +37,7 @@ services:
     environment:
       API_STORE_KIND: "pg"
       API_STORE_URL: "host=pg port=5432 user=ensign password=ensign dbname=ensign"
-      API_ISS: "http://api:3500/api"
+      API_ISS: "http://api.ensign.internal:3500/api"
     command:
       - bootstrap
       - /ensign
@@ -56,8 +59,12 @@ services:
     environment:
       API_STORE_KIND: "pg"
       API_STORE_URL: "host=pg port=5432 user=ensign password=ensign dbname=ensign"
-      API_ISS: "http://api:3500/api"
+      API_ISS: "http://api.ensign.internal:3500/api"
     command: ["serve", "/ensign", "--artifact", "signing=file:/ensign/.local/sign.pem"]
+    networks:
+      default: {}
+      lane:
+        aliases: [api.ensign.internal]
     volumes:
       - ./ensign.toml:/ensign/ensign.toml:ro
       - sign:/ensign/.local
@@ -110,3 +117,6 @@ volumes:
 networks:
   default:
     labels: *lane
+  lane:
+    name: perish-${PERISH_LANE:-main}
+    external: true
