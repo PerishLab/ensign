@@ -69,21 +69,13 @@ fn settle(_: &Path) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::{keep, place, stage};
-    use std::path::{Path, PathBuf};
-    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::path::Path;
 
-    static NEXT: AtomicU64 = AtomicU64::new(0);
-
-    struct Nest(PathBuf);
+    struct Nest(tempfile::TempDir);
 
     impl Nest {
         fn new() -> Self {
-            let serial = NEXT.fetch_add(1, Ordering::Relaxed);
-            let path = Path::new("target")
-                .join("disk")
-                .join(format!("{}-{serial}", std::process::id()));
-            std::fs::create_dir_all(&path).expect("nest");
-            Nest(path)
+            Nest(tempfile::tempdir().expect("nest"))
         }
     }
 
@@ -96,17 +88,11 @@ mod tests {
         names
     }
 
-    impl Drop for Nest {
-        fn drop(&mut self) {
-            let _ = std::fs::remove_dir_all(&self.0);
-        }
-    }
-
     #[test]
     fn publish() {
         let nest = Nest::new();
-        let draft = nest.0.join(".sudo.draft.part");
-        let path = nest.0.join("sudo");
+        let draft = nest.0.path().join(".sudo.draft.part");
+        let path = nest.0.path().join("sudo");
         stage(&draft, b"complete").expect("stage");
         assert!(place(&draft, &path).expect("place"));
         assert_eq!(std::fs::read(&path).expect("read"), b"complete");
@@ -121,8 +107,8 @@ mod tests {
     #[test]
     fn occupied() {
         let nest = Nest::new();
-        let draft = nest.0.join(".sudo.draft.part");
-        let path = nest.0.join("sudo");
+        let draft = nest.0.path().join(".sudo.draft.part");
+        let path = nest.0.path().join("sudo");
         std::fs::write(&path, b"held").expect("held");
         stage(&draft, b"rival").expect("stage");
         assert!(!place(&draft, &path).expect("place"));
@@ -132,7 +118,7 @@ mod tests {
     #[test]
     fn fresh() {
         let nest = Nest::new();
-        let path = nest.0.join("deep").join("sudo");
+        let path = nest.0.path().join("deep").join("sudo");
         assert!(keep(&path, b"complete").expect("keep"));
         assert_eq!(std::fs::read(&path).expect("read"), b"complete");
         assert!(!keep(&path, b"rival").expect("again"));
@@ -143,19 +129,19 @@ mod tests {
             let mode = std::fs::metadata(&path).expect("meta").permissions().mode();
             assert_eq!(mode & 0o777, 0o600);
         }
-        assert_eq!(names(&nest.0.join("deep")), vec!["sudo".to_string()]);
+        assert_eq!(names(&nest.0.path().join("deep")), vec!["sudo".to_string()]);
     }
 
     #[test]
     fn leftover() {
         let nest = Nest::new();
-        let stale = nest.0.join(".sudo.0000000000000000.part");
+        let stale = nest.0.path().join(".sudo.0000000000000000.part");
         std::fs::write(&stale, b"").expect("stale");
-        let path = nest.0.join("sudo");
+        let path = nest.0.path().join("sudo");
         assert!(keep(&path, b"complete").expect("keep"));
         assert_eq!(std::fs::read(&path).expect("read"), b"complete");
         assert_eq!(
-            names(&nest.0),
+            names(nest.0.path()),
             vec![
                 ".sudo.0000000000000000.part".to_string(),
                 "sudo".to_string()
