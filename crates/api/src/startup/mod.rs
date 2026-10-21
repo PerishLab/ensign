@@ -1,4 +1,5 @@
 mod berth;
+mod key;
 
 pub use berth::Berth;
 
@@ -117,8 +118,11 @@ async fn provision<W: Wire + 'static>(
         .and_then(|core| core.identify("Actor"))
         .map_err(|err| err.to_string())?
         .share();
-    Berth(&core).seed().await.map_err(|err| err.to_string())?;
+    let (gate, _) = Berth(&core).seed().await.map_err(|err| err.to_string())?;
     oidc::provision(&artifacts.signing)?;
+    for (slug, held) in &artifacts.keys {
+        Berth(&core).key(&gate, slug, held).await?;
+    }
     Berth(&core).rig().await.map_err(|err| err.to_string())?;
     Ok(())
 }
@@ -159,12 +163,12 @@ async fn listen<W: Wire + 'static>(core: Arc<Core<W>>, runtime: &Runtime, signin
         false => runtime.iss.trim_end_matches('/').to_string(),
     };
     let booth = Booth::new(core.clone(), door.clone(), svc, iss.starts_with("https://"));
-    let plate = booth.plate();
+    let plate = booth.clone().plate();
     let keys = match oidc::keys(signing) {
         Ok(keys) => keys,
         Err(err) => halt("signing", &err),
     };
-    let flags = oidc::Oidc::new(core.clone(), svc, iss, keys).plate();
+    let flags = oidc::Oidc::new(&booth, iss, keys).plate();
     let base = app(core.clone(), &seat.prefix).merge(plate).merge(flags);
     let router = Router::new().nest(PREFIX, door.screen(base));
     let addr = format!("{}:{}", seat.host, seat.port);

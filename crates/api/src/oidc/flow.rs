@@ -1,4 +1,5 @@
 use crate::oidc::plain::{bearer, sour};
+use crate::oidc::swap::SWAP;
 use crate::oidc::{Ask, Grant, Oidc};
 use crate::util::pct;
 use axum::Extension;
@@ -57,7 +58,7 @@ impl<W: Wire + 'static> Oidc<W> {
             "userinfo_endpoint": format!("{iss}/userinfo"),
             "jwks_uri": format!("{iss}/.well-known/jwks.json"),
             "response_types_supported": ["code"],
-            "grant_types_supported": ["authorization_code", "refresh_token"],
+            "grant_types_supported": ["authorization_code", "refresh_token", SWAP],
             "subject_types_supported": ["public"],
             "id_token_signing_alg_values_supported": ["ES256"],
             "scopes_supported": ["openid", "profile"],
@@ -91,6 +92,7 @@ impl<W: Wire + 'static> Oidc<W> {
         let grip = match grant.kind.as_str() {
             "authorization_code" => self.trade(grant).await,
             "refresh_token" => self.renew(grant).await,
+            SWAP => self.swap(grant).await,
             _ => Err(sour("unsupported_grant_type")),
         };
         let mut out = match grip {

@@ -2,9 +2,11 @@
 # which a Runseal lane profile supplies. A lane holds nothing precious:
 # `down -v` then `up` rebuilds it, sudo and signing key included. Nothing
 # publishes a host port: reach a lane with `exec` or the `tools` profile.
-# Only `api` joins the shared lane network, as api.ensign.internal; create
-# it once per lane with `docker network create --label perish.owner=perish
-# --label perish.lane=<lane> perish-<lane>`.
+# Only `api` joins the shared lane network, as api.ensign.internal, and only
+# `bootstrap` writes to the shared lane volume, under `ensign/`: the keys of
+# the consumers it declares. Create both once per lane with `docker network
+# create` and `docker volume create`, each labelled `perish.owner=perish` and
+# `perish.lane=<lane>` and named `perish-<lane>`.
 name: ensign-${PERISH_LANE:-main}
 
 x-lane: &lane
@@ -27,6 +29,14 @@ services:
       interval: 2s
       timeout: 3s
       retries: 20
+  # Prepares ensign's own seat in the shared volume for the non-root bootstrap.
+  seat:
+    profiles: [stack]
+    image: busybox:1.37
+    labels: *lane
+    command: ["sh", "-c", "mkdir -p /perish/ensign && chown 10001 /perish/ensign"]
+    volumes:
+      - perish:/perish
   bootstrap:
     profiles: [stack]
     image: ensign-api:dev
@@ -45,13 +55,18 @@ services:
       - sudo=file:/ensign/sudo
       - --artifact
       - signing=file:/ensign/.local/sign.pem
+      - --artifact
+      - key:codehull=file:/perish/ensign/codehull.key
     volumes:
       - custody:/ensign
       - ./ensign.toml:/ensign/ensign.toml:ro
       - sign:/ensign/.local
+      - perish:/perish
     depends_on:
       pg:
         condition: service_healthy
+      seat:
+        condition: service_completed_successfully
   api:
     profiles: [stack]
     image: ensign-api:dev
@@ -113,6 +128,9 @@ volumes:
     labels: *lane
   git:
     labels: *lane
+  perish:
+    name: perish-${PERISH_LANE:-main}
+    external: true
 
 networks:
   default:

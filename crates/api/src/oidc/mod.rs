@@ -4,11 +4,13 @@ mod issue;
 mod keys;
 mod name;
 mod plain;
+mod swap;
 
 pub(crate) use bear::{Bearing, Code, Ward};
 
 pub(crate) use keys::{Keys, keys, provision};
 
+use crate::booth::Booth;
 use crate::util::{Sound, pct};
 use axum::Json;
 use axum::http::StatusCode;
@@ -16,7 +18,7 @@ use axum::response::{IntoResponse, Redirect, Response};
 use jsonwebtoken::{Algorithm, Validation, decode};
 use keel::life::tick;
 use keel::{Core, Op, Wire, form};
-use keel_gate::wild;
+use keel_gate::{Gate, wild};
 use plain::{safe, seal};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -29,6 +31,7 @@ pub(crate) const RENEW: i64 = 60 * 60 * 24 * 30;
 
 pub(crate) struct Oidc<W: Wire> {
     pub(crate) core: Arc<Core<W>>,
+    pub(crate) gate: Gate<W>,
     pub(crate) svc: i64,
     pub(crate) keys: Arc<Keys>,
     pub(crate) iss: String,
@@ -39,6 +42,7 @@ impl<W: Wire> Clone for Oidc<W> {
     fn clone(&self) -> Self {
         Self {
             core: self.core.clone(),
+            gate: self.gate.clone(),
             svc: self.svc,
             keys: self.keys.clone(),
             iss: self.iss.clone(),
@@ -48,10 +52,11 @@ impl<W: Wire> Clone for Oidc<W> {
 }
 
 impl<W: Wire + 'static> Oidc<W> {
-    pub(crate) fn new(core: Arc<Core<W>>, svc: i64, iss: String, keys: Keys) -> Self {
+    pub(crate) fn new(booth: &Booth<W>, iss: String, keys: Keys) -> Self {
         Self {
-            core,
-            svc,
+            core: booth.core.clone(),
+            gate: booth.gate.clone(),
+            svc: booth.svc,
             keys: Arc::new(keys),
             iss,
             codes: Arc::new(Mutex::new(HashMap::new())),
@@ -248,6 +253,11 @@ pub(crate) struct Grant {
     verifier: Option<String>,
     #[serde(rename = "refresh_token")]
     renew: Option<String>,
+    #[serde(rename = "subject_token")]
+    subject: Option<String>,
+    #[serde(rename = "subject_token_type")]
+    sort: Option<String>,
+    resource: Option<String>,
 }
 
 pub(crate) type Grip = Result<Json<Value>, (StatusCode, Json<Value>)>;
