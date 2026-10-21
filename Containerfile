@@ -6,6 +6,6 @@ WORKDIR /ensign
 COPY ensign-api /usr/local/bin/ensign-api
 RUN chmod 0755 /usr/local/bin/ensign-api && mkdir -p .local && chown -R ensign:ensign /ensign
 USER ensign
-EXPOSE 3500
+EXPOSE 8080
 ENTRYPOINT ["ensign-api"]
 CMD ["serve", "/ensign"]
