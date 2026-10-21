@@ -28,7 +28,7 @@ impl Default for Listen {
     fn default() -> Self {
         Listen {
             host: "127.0.0.1".to_string(),
-            port: 3500,
+            port: 8080,
             prefix: String::new(),
         }
     }

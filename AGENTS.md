@@ -27,7 +27,7 @@ keel's `AGENTS.md` and source; this repo obeys them from the outside.
   nothing precious and publishes no host port. Its services answer by short
   name on the lane's private network (`pg`, `api`). Only `api` also joins the
   shared lane network `perish-<lane>` as `api.ensign.internal`, and
-  `http://api.ensign.internal:3500/api` is the issuer.
+  `http://api.ensign.internal:8080/api` is the issuer.
   The `tools` profile's `runner` runs the acts there on the `ensign_acts`
   database: `docker compose -f deploy/compose.yml --profile tools run --rm
   runner cargo test --locked -p api --test acceptance`. It mounts the
