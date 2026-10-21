@@ -1,7 +1,8 @@
-use super::keyed;
+use super::bench::Bench;
 use super::oidc::Flow;
 use super::stage::Stage;
 use super::wire::{Reply, Wire, bare};
+use super::{keyed, staged};
 use serde_json::json;
 
 const SWAP: &str = "urn:ietf:params:oauth:grant-type:token-exchange";
@@ -29,7 +30,7 @@ fn spec(stage: &Stage, slug: &str, file: &str) -> String {
     format!("key:{slug}=file:{}", stage.nest.join(file).display())
 }
 
-fn actor(stage: &Stage, wire: &Wire, sub: &str) -> i64 {
+fn actor(stage: &Bench, wire: &Wire, sub: &str) -> i64 {
     let rows = wire.get("/Actor", &stage.crown()).body;
     rows.as_array()
         .and_then(|rows| rows.iter().find(|row| row["sub"] == json!(sub)))
@@ -153,7 +154,7 @@ fn barred() {
 
 #[test]
 fn replay() {
-    let (stage, wire) = keyed(&["ledger"]);
+    let (stage, wire) = staged(&["ledger"]);
     let held = std::fs::read(stage.nest.join("ledger.key")).expect("key");
     let again = stage.again(&[spec(&stage, "ledger", "ledger.key")]);
     assert!(
@@ -171,7 +172,7 @@ fn replay() {
 
 #[test]
 fn drift() {
-    let (stage, wire) = keyed(&["ledger", "vault"]);
+    let (stage, wire) = staged(&["ledger", "vault"]);
     let flow = Flow { wire: &wire };
     let crown = stage.crown();
     flow.portal(&crown);

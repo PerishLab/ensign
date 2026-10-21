@@ -4,7 +4,7 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD as B64;
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use serde_json::{Value, json};
 
-pub(crate) struct Keys {
+pub struct Keys {
     pub(crate) enc: EncodingKey,
     pub(crate) dec: DecodingKey,
     pub(crate) jwk: Value,
@@ -28,7 +28,7 @@ fn read(bytes: &[u8]) -> Result<Keys, String> {
     shape(secret)
 }
 
-pub(crate) fn provision(artifact: &crate::artifact::Artifact) -> Result<Keys, String> {
+pub fn provision(artifact: &crate::artifact::Artifact) -> Result<Keys, String> {
     use p256::SecretKey;
     use p256::elliptic_curve::Generate;
     use p256::pkcs8::EncodePrivateKey;

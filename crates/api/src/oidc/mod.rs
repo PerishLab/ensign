@@ -8,7 +8,8 @@ mod swap;
 
 pub(crate) use bear::{Bearing, Code, Ward};
 
-pub(crate) use keys::{Keys, keys, provision};
+pub(crate) use keys::keys;
+pub use keys::{Keys, provision};
 
 use crate::booth::Booth;
 use crate::util::{Sound, pct};

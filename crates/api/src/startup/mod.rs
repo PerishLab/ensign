@@ -5,6 +5,7 @@ pub use berth::Berth;
 
 use crate::artifact::{self, Artifact};
 use crate::config::{self, Hold, Kind, Runtime};
+use crate::oidc::Keys;
 use crate::recovery;
 use crate::{Booth, oidc, shape};
 use axum::Router;
@@ -171,15 +172,12 @@ async fn listen<W: Wire + 'static>(core: Arc<Core<W>>, runtime: &Runtime, signin
         true => format!("http://{}:{}{PREFIX}", seat.host, live.port()),
         false => runtime.iss.trim_end_matches('/').to_string(),
     };
-    let booth = Booth::new(core.clone(), door.clone(), svc, iss.starts_with("https://"));
-    let plate = booth.clone().plate();
+    let booth = Booth::new(core, door, svc, iss.starts_with("https://"));
     let keys = match oidc::keys(signing) {
         Ok(keys) => keys,
         Err(err) => halt("signing", &err),
     };
-    let flags = oidc::Oidc::new(&booth, iss, keys).plate();
-    let base = app(core.clone(), &seat.prefix).merge(plate).merge(flags);
-    let router = Router::new().nest(PREFIX, door.screen(base));
+    let router = router(booth, iss, keys, &seat.prefix);
     eprintln!(
         "{}",
         serde_json::json!({ "role": "api", "endpoint": format!("http://{live}") })
@@ -187,6 +185,14 @@ async fn listen<W: Wire + 'static>(core: Arc<Core<W>>, runtime: &Runtime, signin
     if let Err(err) = axum::serve(bound, router).await {
         halt("serve", &err.to_string());
     }
+}
+
+pub fn router<W: Wire + 'static>(booth: Booth<W>, iss: String, keys: Keys, prefix: &str) -> Router {
+    let core = booth.core.clone();
+    let gate = booth.gate.clone();
+    let flags = oidc::Oidc::new(&booth, iss, keys).plate();
+    let base = app(core, prefix).merge(booth.plate()).merge(flags);
+    Router::new().nest(PREFIX, gate.screen(base))
 }
 
 fn halt(seat: &str, note: &str) -> ! {

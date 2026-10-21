@@ -6,12 +6,7 @@ use keel::{Op, Wire, form};
 use keel_gate::{Gate, digest};
 
 impl<W: Wire + 'static> Berth<'_, W> {
-    pub(crate) async fn key(
-        &self,
-        gate: &Gate<W>,
-        slug: &str,
-        held: &Artifact,
-    ) -> Result<(), String> {
+    pub async fn key(&self, gate: &Gate<W>, slug: &str, held: &Artifact) -> Result<(), String> {
         let app = self.resource(slug).await?;
         let actor = self.consumer(slug).await?;
         let kept = held.load()?;

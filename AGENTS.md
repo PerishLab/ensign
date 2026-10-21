@@ -45,12 +45,17 @@ Plumb's pre-commit guard proves every commit against its exact staged tree,
 and `plumb guard .` shows what it runs. `helm lint` is run by hand when a
 change touches the chart or the delivery.
 
-The acts are ordinary Rust integration tests that serve the real binary:
-`crates/api/tests/acceptance` covers the identity floor, grants, OIDC and
-forward-auth, and `crates/cli/tests/acceptance` drives the `ensign` CLI
-against `ensign-api`. Set `API_STORE_URL` to run them on Postgres. The
-repository keeps no `.runseal/` directory: the acts harness, the generic
-guard, init and land wrappers and the repository-owned Git hooks are gone.
+The acts are ordinary Rust integration tests. Behavior runs in-process:
+`crates/api/tests/acceptance` covers the identity floor, grants, OIDC,
+forward-auth and token exchange through `api::router`, the router `serve`
+mounts, on an estate sealed in the test (`rig/bench.rs`). The real binary is
+thin smoke: `crates/api/tests/bootstrap.rs` holds the ceremony, replay and
+runtime refusals, `smoke.rs` one served health and discovery check, the
+bootstrap re-runs in `swap.rs` keep `Stage`, and `crates/cli/tests/acceptance`
+drives the `ensign` CLI against `ensign-api`. Set `API_STORE_URL` to run both
+on Postgres. The repository keeps no `.runseal/` directory: the acts harness,
+the generic guard, init and land wrappers and the repository-owned Git hooks
+are gone.
 
 ## Lanes
 

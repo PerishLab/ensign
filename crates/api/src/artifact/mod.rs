@@ -6,7 +6,7 @@ mod disk;
 mod seal;
 
 #[derive(Clone, Debug)]
-pub(crate) enum Artifact {
+pub enum Artifact {
     Kept(PathBuf),
     Sealed(String),
 }
