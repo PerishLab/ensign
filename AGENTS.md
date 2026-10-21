@@ -24,8 +24,10 @@ keel's `AGENTS.md` and source; this repo obeys them from the outside.
 - `deploy` — the only compose entry and its `ensign.toml`. The project is
   `ensign-<lane>` from `PERISH_LANE` (default `main`), and every service,
   volume and network carries `perish.owner` and `perish.lane`; a lane holds
-  nothing precious and publishes no host port. Its services answer by name
-  inside the lane (`pg`, and `api` at `http://api:3500/api`, the issuer).
+  nothing precious and publishes no host port. Its services answer by short
+  name on the lane's private network (`pg`, `api`). Only `api` also joins the
+  shared lane network `perish-<lane>` as `api.ensign.internal`, and
+  `http://api.ensign.internal:3500/api` is the issuer.
   The `tools` profile's `runner` runs the acts there on the `ensign_acts`
   database: `docker compose -f deploy/compose.yml --profile tools run --rm
   runner cargo test --locked -p api --test acceptance`. It mounts the
@@ -57,6 +59,13 @@ A lane is yours when its resources carry `perish.owner=ensign` and your
 rebuild it without asking. Host configuration, global toolchains,
 credentials, Integration checkouts and other lanes are outside it; stop and
 report instead of repairing them from inside a lane.
+
+Products meet on `perish-<lane>`, an external network labelled
+`perish.owner=perish` and `perish.lane=<lane>` that no product owns. Create
+it before `--profile stack up` with `docker network create --label
+perish.owner=perish --label perish.lane=<lane> perish-<lane>`, and remove
+it once no product's lane uses it. Joining it publishes an interface under
+`<component>.<ns>.internal`; databases never join it.
 
 ## Product stance
 
