@@ -2,7 +2,7 @@
 
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Command, Output, Stdio};
 use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 
@@ -15,6 +15,7 @@ pub struct Stage {
     pub base: String,
     pub sudo: String,
     pub nest: PathBuf,
+    exe: PathBuf,
     child: Child,
     room: tempfile::TempDir,
     hold: Option<MutexGuard<'static, Unit>>,
@@ -22,6 +23,10 @@ pub struct Stage {
 
 impl Stage {
     pub fn new(exe: &Path) -> Self {
+        Self::with(exe, &[])
+    }
+
+    pub fn with(exe: &Path, slugs: &[&str]) -> Self {
         let store = std::env::var("API_STORE_URL")
             .ok()
             .filter(|url| !url.is_empty());
@@ -44,15 +49,18 @@ impl Stage {
         let sudo = nest.join("sudo");
         let signing = format!("signing=file:{}", nest.join("sign.pem").display());
         let mut boot = launch(exe, &nest, store.as_deref(), true);
-        let done = boot
-            .arg("bootstrap")
+        boot.arg("bootstrap")
             .arg(&nest)
             .arg("--artifact")
             .arg(format!("sudo=file:{}", sudo.display()))
             .arg("--artifact")
-            .arg(&signing)
-            .output()
-            .expect("bootstrap process");
+            .arg(&signing);
+        for slug in slugs {
+            let held = nest.join(format!("{slug}.key"));
+            boot.arg("--artifact")
+                .arg(format!("key:{slug}=file:{}", held.display()));
+        }
+        let done = boot.output().expect("bootstrap process");
         assert!(
             done.status.success(),
             "{}",
@@ -75,12 +83,38 @@ impl Stage {
             origin,
             sudo: token.trim().to_string(),
             nest,
+            exe: exe.to_path_buf(),
             child,
             room,
             hold,
         };
         stage.ready();
         stage
+    }
+
+    pub fn key(&self, slug: &str) -> String {
+        let held = std::fs::read_to_string(self.nest.join(format!("{slug}.key")));
+        held.expect("key custody").trim().to_string()
+    }
+
+    pub fn again(&self, specs: &[String]) -> Output {
+        let store = std::env::var("API_STORE_URL")
+            .ok()
+            .filter(|url| !url.is_empty());
+        let mut boot = launch(&self.exe, &self.nest, store.as_deref(), false);
+        boot.arg("bootstrap")
+            .arg(&self.nest)
+            .arg("--artifact")
+            .arg(format!("sudo=file:{}", self.nest.join("sudo").display()))
+            .arg("--artifact")
+            .arg(format!(
+                "signing=file:{}",
+                self.nest.join("sign.pem").display()
+            ));
+        for spec in specs {
+            boot.arg("--artifact").arg(spec);
+        }
+        boot.output().expect("bootstrap process")
     }
 
     pub fn crown(&self) -> Vec<(String, String)> {

@@ -60,12 +60,15 @@ rebuild it without asking. Host configuration, global toolchains,
 credentials, Integration checkouts and other lanes are outside it; stop and
 report instead of repairing them from inside a lane.
 
-Products meet on `perish-<lane>`, an external network labelled
-`perish.owner=perish` and `perish.lane=<lane>` that no product owns. Create
-it before `--profile stack up` with `docker network create --label
-perish.owner=perish --label perish.lane=<lane> perish-<lane>`, and remove
-it once no product's lane uses it. Joining it publishes an interface under
-`<component>.<ns>.internal`; databases never join it.
+Products meet on `perish-<lane>`, an external network and an external volume
+of that name, each labelled `perish.owner=perish` and `perish.lane=<lane>`
+and owned by no product. Create both before `--profile stack up` (`docker
+network create` and `docker volume create`, with those labels), and remove
+them once no product's lane uses them. Joining the network publishes an
+interface under `<component>.<ns>.internal`; databases never join it. In the
+volume each product writes only below its own `<ns>/`: ensign's `bootstrap`
+keeps there the keys of the consumers it declares (`ensign/codehull.key`),
+which consumers mount read-only.
 
 ## Product stance
 
@@ -84,7 +87,10 @@ it once no product's lane uses it. Joining it publishes an interface under
 - Passkeys / email OTP / SMS OTP / risk control are DEFERRED-ABSORB:
   convenience and defense layers, added gradually, never floors,
   never cold-start dependencies.
-- OIDC (code + PKCE) and forward-auth are the two provider faces.
+- OIDC (code + PKCE) and forward-auth are the provider faces for people;
+  RFC 8693 token exchange of a held ensign bearer is the one non-interactive
+  face, for services and agents, minting only an access token for a
+  registered `resource` audience. No client_credentials or password grant.
 - No SAML / LDAP / RADIUS / SCIM / flow engine / expression policies /
   upstream federation — permanent cuts.
 - Capability needs ride keel's gate primitives; engine gaps become keel issues,
@@ -137,11 +143,16 @@ The CLI receives the explicit API root, including `/api`, through `ENSIGN_URL`.
 - A **bootstrap** is one startup ceremony with a beginning and an end, never a
   row, a role, a route, or a long-running mode.
 - An **artifact** is one named secret with one caller-selected destination:
-  `sudo` for Keel estate genesis, `signing` for the OIDC key.
+  `sudo` for Keel estate genesis, `signing` for the OIDC key, and
+  `key:<slug>` for one declared consumer: the bearer of a consumer Actor
+  `<slug>` beside a `resource` App `<slug>`, both ensured by the same ceremony.
 - **Sudo** is genesis possession; it is never converted into an account or
   retained as a steady-state role.
 - The **service Actor** is exactly one live `Actor` named `ensign`, kind `svc`,
-  `barred=false`, holding ordinary Keel `@grant` rows.
+  `barred=false`, holding ordinary Keel `@grant` rows. Consumer Actors are also
+  kind `svc` and named for their slug; born through identity birth, each holds
+  only its own row grant and none of ensign's. A slug that names `ensign` or
+  any existing Actor other than its own consumer is drift.
 - Custody and runtime are separate seats. The process that may mint or keep
   sudo is not the process that serves requests; when orchestration cannot hold
   that line, the binary holds it.

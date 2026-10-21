@@ -119,7 +119,7 @@ impl<W: Wire + 'static> Oidc<W> {
         face.lease("Renew", row, tick() + RENEW).await
     }
 
-    fn sign(&self, ticket: &Ticket) -> Result<String, jsonwebtoken::errors::Error> {
+    pub(crate) fn sign(&self, ticket: &Ticket) -> Result<String, jsonwebtoken::errors::Error> {
         let mut head = Header::new(Algorithm::ES256);
         head.kid = Some(self.keys.kid.clone());
         let claims = Claims {

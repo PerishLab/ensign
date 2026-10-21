@@ -41,12 +41,26 @@ and accepts only HTTPS or loopback redirects. Access and identity tokens carry
 distinct kinds. Forward-auth resolves the same operator and returns identity
 headers only for a live, unbarred identity.
 
+Token exchange (RFC 8693) trades a held ensign bearer of a live, unbarred
+Actor for an access token whose audience is a `resource` App. It is the
+non-interactive face for services and agents: it mints no identity token, no
+refresh grant and no session, never accepts a password, and refuses an
+audience that is not a registered `resource`. People still prove possession
+through the password floor and OIDC code + PKCE.
+
 ## Possessions
 
 The ES256 signing key is app-owned durable bytes created only by explicit
 bootstrap and loaded read-only at runtime. Signing custody and sudo custody are
 separate even when orchestration uses the same artifact grammar. Runtime must
 never receive the sudo artifact.
+
+A consumer key is bootstrap-minted possession for one declared audience: the
+ceremony that holds sudo ensures a `resource` App and a consumer Actor of the
+same slug, kind `svc`, born through identity birth and so holding only its own
+row grant, none of ensign's, and keeps a bearer of that Actor at the
+caller-selected destination. Runtime receives no consumer key either; the
+consumer holds it and exchanges it.
 
 Authorization codes and future ceremony challenges are in-process ephemera,
 not Keel rows. Durable credentials use leased rows; protocol ephemera die with

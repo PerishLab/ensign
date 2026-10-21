@@ -254,5 +254,7 @@ fn forbidden() {
     );
 }
 
+#[path = "bootstrap/key.rs"]
+mod key;
 #[path = "bootstrap/observation.rs"]
 mod observation;

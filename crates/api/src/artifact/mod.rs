@@ -15,6 +15,7 @@ pub(crate) enum Artifact {
 pub(crate) struct Bootstrap {
     pub(crate) sudo: Artifact,
     pub(crate) signing: Artifact,
+    pub(crate) keys: BTreeMap<String, Artifact>,
 }
 
 impl Artifact {
@@ -47,16 +48,39 @@ pub(crate) fn bootstrap(specs: &[String]) -> Result<Bootstrap, String> {
     let signing = found
         .remove("signing")
         .ok_or_else(|| "missing artifact: signing".to_string())?;
-    if let Some(name) = found.keys().next() {
-        return Err(format!("unknown artifact: {name}"));
+    let mut keys = BTreeMap::new();
+    for (name, held) in found {
+        let slug = name
+            .strip_prefix(KEY)
+            .ok_or_else(|| format!("unknown artifact: {name}"))?;
+        if !sound(slug) {
+            return Err(format!("malformed key artifact: {name}"));
+        }
+        keys.insert(slug.to_string(), held);
     }
-    Ok(Bootstrap { sudo, signing })
+    Ok(Bootstrap {
+        sudo,
+        signing,
+        keys,
+    })
+}
+
+const KEY: &str = "key:";
+
+fn sound(slug: &str) -> bool {
+    !slug.is_empty()
+        && slug
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
 }
 
 pub(crate) fn signing(root: &Path, specs: &[String]) -> Result<Artifact, String> {
     let mut found = parse(specs)?;
     if found.contains_key("sudo") {
         return Err("sudo artifact is forbidden at runtime".to_string());
+    }
+    if let Some(name) = found.keys().find(|name| name.starts_with(KEY)) {
+        return Err(format!("key artifact is forbidden at runtime: {name}"));
     }
     let signing = match found.remove("signing") {
         Some(signing) => signing,
