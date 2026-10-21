@@ -20,8 +20,10 @@ mod recovery {
     }
 }
 
+pub use artifact::Artifact;
 pub use booth::Booth;
-pub use startup::{Berth, bootstrap, serve};
+pub use oidc::{Keys, provision};
+pub use startup::{Berth, bootstrap, router, serve};
 pub use util::lock;
 
 use crate::model::{Actor, App, Invite, Pass, Profile, Renew, Rescue, Source, Team, plug};

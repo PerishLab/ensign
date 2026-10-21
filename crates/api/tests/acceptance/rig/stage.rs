@@ -7,7 +7,7 @@ use std::process::{Child, Command, Output, Stdio};
 use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 
-struct Unit;
+pub struct Unit;
 
 static SERIAL: Mutex<Unit> = Mutex::new(Unit);
 
@@ -28,12 +28,8 @@ impl Stage {
     }
 
     pub fn with(exe: &Path, slugs: &[&str]) -> Self {
-        let store = std::env::var("API_STORE_URL")
-            .ok()
-            .filter(|url| !url.is_empty());
-        let hold = store
-            .as_ref()
-            .map(|_| SERIAL.lock().unwrap_or_else(|poison| poison.into_inner()));
+        let store = store();
+        let hold = serial();
         let room = tempfile::tempdir().expect("stage room");
         let nest = room.path().to_path_buf();
         std::fs::write(
@@ -93,9 +89,7 @@ impl Stage {
     }
 
     pub fn again(&self, specs: &[String]) -> Output {
-        let store = std::env::var("API_STORE_URL")
-            .ok()
-            .filter(|url| !url.is_empty());
+        let store = store();
         let mut boot = launch(&self.exe, &self.nest, store.as_deref(), false);
         boot.arg("bootstrap")
             .arg(&self.nest)
@@ -133,6 +127,16 @@ impl Drop for Stage {
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
+}
+
+pub fn store() -> Option<String> {
+    std::env::var("API_STORE_URL")
+        .ok()
+        .filter(|url| !url.is_empty())
+}
+
+pub fn serial() -> Option<MutexGuard<'static, Unit>> {
+    store().map(|_| SERIAL.lock().unwrap_or_else(|poison| poison.into_inner()))
 }
 
 fn listen(child: &mut Child) -> String {
