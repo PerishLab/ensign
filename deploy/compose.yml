@@ -1,6 +1,7 @@
 # The owner is plumb.toml's [identity] ns; the lane comes from PERISH_LANE,
 # which a Runseal lane profile supplies. A lane holds nothing precious:
-# `down -v` then `up` rebuilds it, sudo and signing key included.
+# `down -v` then `up` rebuilds it, sudo and signing key included. Nothing
+# publishes a host port: reach a lane with `exec` or the `tools` profile.
 name: ensign-${PERISH_LANE:-main}
 
 x-lane: &lane
@@ -15,10 +16,9 @@ services:
       POSTGRES_USER: ensign
       POSTGRES_PASSWORD: ensign
       POSTGRES_DB: ensign
-    ports:
-      - "127.0.0.1::5432"
     volumes:
       - pg:/var/lib/postgresql/data
+      - ./acts.sql:/docker-entrypoint-initdb.d/acts.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ensign"]
       interval: 2s
@@ -34,7 +34,7 @@ services:
     environment:
       API_STORE_KIND: "pg"
       API_STORE_URL: "host=pg port=5432 user=ensign password=ensign dbname=ensign"
-      API_ISS: "http://localhost:${ENSIGN_API_PORT:-8890}/api"
+      API_ISS: "http://api:3500/api"
     command:
       - bootstrap
       - /ensign
@@ -56,16 +56,42 @@ services:
     environment:
       API_STORE_KIND: "pg"
       API_STORE_URL: "host=pg port=5432 user=ensign password=ensign dbname=ensign"
-      API_ISS: "http://localhost:${ENSIGN_API_PORT:-8890}/api"
+      API_ISS: "http://api:3500/api"
     command: ["serve", "/ensign", "--artifact", "signing=file:/ensign/.local/sign.pem"]
-    ports:
-      - "127.0.0.1:${ENSIGN_API_PORT:-8890}:3500"
     volumes:
       - ./ensign.toml:/ensign/ensign.toml:ro
       - sign:/ensign/.local
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -c
+        - exec 3<>/dev/tcp/127.0.0.1/3500 && printf 'GET /api/health HTTP/1.0\r\n\r\n' >&3 && head -n1 <&3 | grep -q ' 200 '
+      interval: 2s
+      timeout: 3s
+      retries: 20
     depends_on:
       bootstrap:
         condition: service_completed_successfully
+  # The acts on the lane's Postgres. The checkout is read-only and cargo
+  # writes only to lane volumes; API_FRESH wipes ensign_acts, never ensign.
+  runner:
+    profiles: [tools]
+    image: ghcr.io/perishlab/images:stable
+    labels: *lane
+    working_dir: /src
+    entrypoint: []
+    environment:
+      CARGO_TARGET_DIR: /target
+      API_STORE_URL: "host=pg port=5432 user=ensign password=ensign dbname=ensign_acts"
+    volumes:
+      - ..:/src:ro
+      - target:/target
+      - registry:/usr/local/cargo/registry
+      - git:/usr/local/cargo/git
+    depends_on:
+      pg:
+        condition: service_healthy
 
 volumes:
   pg:
@@ -73,6 +99,12 @@ volumes:
   custody:
     labels: *lane
   sign:
+    labels: *lane
+  target:
+    labels: *lane
+  registry:
+    labels: *lane
+  git:
     labels: *lane
 
 networks:
