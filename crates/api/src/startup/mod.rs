@@ -158,8 +158,17 @@ async fn listen<W: Wire + 'static>(core: Arc<Core<W>>, runtime: &Runtime, signin
         Err(err) => halt("rise", &err.to_string()),
     };
     let seat = &runtime.listen;
+    let addr = format!("{}:{}", seat.host, seat.port);
+    let bound = match tokio::net::TcpListener::bind(&addr).await {
+        Ok(bound) => bound,
+        Err(err) => halt("listen", &err.to_string()),
+    };
+    let live = match bound.local_addr() {
+        Ok(live) => live,
+        Err(err) => halt("listen", &err.to_string()),
+    };
     let iss = match runtime.iss.is_empty() {
-        true => format!("http://{}:{}{PREFIX}", seat.host, seat.port),
+        true => format!("http://{}:{}{PREFIX}", seat.host, live.port()),
         false => runtime.iss.trim_end_matches('/').to_string(),
     };
     let booth = Booth::new(core.clone(), door.clone(), svc, iss.starts_with("https://"));
@@ -171,15 +180,6 @@ async fn listen<W: Wire + 'static>(core: Arc<Core<W>>, runtime: &Runtime, signin
     let flags = oidc::Oidc::new(&booth, iss, keys).plate();
     let base = app(core.clone(), &seat.prefix).merge(plate).merge(flags);
     let router = Router::new().nest(PREFIX, door.screen(base));
-    let addr = format!("{}:{}", seat.host, seat.port);
-    let bound = match tokio::net::TcpListener::bind(&addr).await {
-        Ok(bound) => bound,
-        Err(err) => halt("listen", &err.to_string()),
-    };
-    let live = match bound.local_addr() {
-        Ok(live) => live,
-        Err(err) => halt("listen", &err.to_string()),
-    };
     eprintln!(
         "{}",
         serde_json::json!({ "role": "api", "endpoint": format!("http://{live}") })

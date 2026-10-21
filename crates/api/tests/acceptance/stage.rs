@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
-use std::net::TcpListener;
+use serde_json::Value;
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Output, Stdio};
 use std::sync::{Mutex, MutexGuard};
@@ -35,15 +36,9 @@ impl Stage {
             .map(|_| SERIAL.lock().unwrap_or_else(|poison| poison.into_inner()));
         let room = tempfile::tempdir().expect("stage room");
         let nest = room.path().to_path_buf();
-        let port = TcpListener::bind("127.0.0.1:0")
-            .and_then(|probe| probe.local_addr())
-            .expect("free port")
-            .port();
         std::fs::write(
             nest.join("ensign.toml"),
-            format!(
-                "[listen]\nhost = \"127.0.0.1\"\nport = {port}\nprefix = \"\"\n\n[store]\nkind = \"file\"\npath = \"estate.db\"\n\n[cache]\nkind = \"memory\"\n"
-            ),
+            "[listen]\nhost = \"127.0.0.1\"\nport = 0\nprefix = \"\"\n\n[store]\nkind = \"file\"\npath = \"estate.db\"\n\n[cache]\nkind = \"memory\"\n",
         )
         .expect("stage config");
         let sudo = nest.join("sudo");
@@ -67,17 +62,17 @@ impl Stage {
             String::from_utf8_lossy(&done.stderr)
         );
         let token = std::fs::read_to_string(&sudo).expect("sudo custody");
-        let child = launch(exe, &nest, store.as_deref(), false)
+        let mut child = launch(exe, &nest, store.as_deref(), false)
             .arg("serve")
             .arg(&nest)
             .arg("--artifact")
             .arg(&signing)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stderr(Stdio::piped())
             .spawn()
             .expect("serve process");
-        let origin = format!("http://127.0.0.1:{port}");
+        let origin = listen(&mut child);
         let stage = Self {
             base: format!("{origin}/api"),
             origin,
@@ -138,6 +133,25 @@ impl Drop for Stage {
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
+}
+
+fn listen(child: &mut Child) -> String {
+    let pipe = child.stderr.take().expect("serve stderr");
+    let mut lines = BufReader::new(pipe).lines();
+    let mut said = Vec::new();
+    while let Some(Ok(line)) = lines.next() {
+        let seen: Value = serde_json::from_str(&line).unwrap_or(Value::Null);
+        if seen["role"] == "api"
+            && let Some(at) = seen["endpoint"].as_str()
+        {
+            let at = at.to_string();
+            std::thread::spawn(move || lines.for_each(drop));
+            return at;
+        }
+        said.push(line);
+    }
+    let _ = child.wait();
+    panic!("serve exited before listening: {}", said.join("\n"));
 }
 
 fn launch(exe: &Path, nest: &Path, store: Option<&str>, fresh: bool) -> Command {
