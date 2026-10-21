@@ -1,25 +1,40 @@
-name: ensign-deploy
+# The owner is plumb.toml's [identity] ns; the lane comes from PERISH_LANE,
+# which a Runseal lane profile supplies. A lane holds nothing precious:
+# `down -v` then `up` rebuilds it, sudo and signing key included.
+name: ensign-${PERISH_LANE:-main}
+
+x-lane: &lane
+  perish.owner: ensign
+  perish.lane: ${PERISH_LANE:-main}
+
 services:
   pg:
     image: postgres:17-alpine
+    labels: *lane
     environment:
       POSTGRES_USER: ensign
       POSTGRES_PASSWORD: ensign
       POSTGRES_DB: ensign
+    ports:
+      - "127.0.0.1::5432"
+    volumes:
+      - pg:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ensign"]
       interval: 2s
       timeout: 3s
       retries: 20
   bootstrap:
+    profiles: [stack]
     image: ensign-api:dev
+    labels: *lane
     build:
       context: ..
       dockerfile: Containerfile
     environment:
       API_STORE_KIND: "pg"
       API_STORE_URL: "host=pg port=5432 user=ensign password=ensign dbname=ensign"
-      API_ISS: "http://localhost:8890/api"
+      API_ISS: "http://localhost:${ENSIGN_API_PORT:-8890}/api"
     command:
       - bootstrap
       - /ensign
@@ -35,20 +50,31 @@ services:
       pg:
         condition: service_healthy
   api:
+    profiles: [stack]
     image: ensign-api:dev
+    labels: *lane
     environment:
       API_STORE_KIND: "pg"
       API_STORE_URL: "host=pg port=5432 user=ensign password=ensign dbname=ensign"
-      API_ISS: "http://localhost:8890/api"
+      API_ISS: "http://localhost:${ENSIGN_API_PORT:-8890}/api"
     command: ["serve", "/ensign", "--artifact", "signing=file:/ensign/.local/sign.pem"]
     ports:
-      - "8890:3500"
+      - "127.0.0.1:${ENSIGN_API_PORT:-8890}:3500"
     volumes:
       - ./ensign.toml:/ensign/ensign.toml:ro
       - sign:/ensign/.local
     depends_on:
       bootstrap:
         condition: service_completed_successfully
+
 volumes:
-  sign:
+  pg:
+    labels: *lane
   custody:
+    labels: *lane
+  sign:
+    labels: *lane
+
+networks:
+  default:
+    labels: *lane

@@ -21,10 +21,15 @@ keel's `AGENTS.md` and source; this repo obeys them from the outside.
   stamps the release marker onto it. Its ConfigMap supplies `ensign.toml`.
 - `Containerfile` — the server image. Its build context is only this file and
   an `ensign-api` binary beside it; it bakes in no configuration.
-- `deploy` — the local compose surface and its `ensign.toml`. Build with
+- `deploy` — the only compose entry and its `ensign.toml`. The project is
+  `ensign-<lane>` from `PERISH_LANE` (default `main`), and every service,
+  volume and network carries `perish.owner` and `perish.lane`; a lane holds
+  nothing precious. `up pg` alone gives Postgres on a loopback ephemeral
+  port (`docker compose port pg 5432`). For the stack, build with
   `cargo build --release --locked --bin ensign-api`, copy
   `target/release/ensign-api` to the repository root (ignored), then
-  `docker compose -f deploy/compose.yml up --build`. A `bootstrap` service
+  `docker compose -f deploy/compose.yml --profile stack up --build`; the API
+  listens on loopback `ENSIGN_API_PORT` (default 8890). A `bootstrap` service
   runs first and keeps sudo in a volume the `api` service never mounts.
 - `apps/web` — a placeholder `index.html` only. The web plane is deferred,
   not deleted; the seat is held so the delivery paradigm can return without
