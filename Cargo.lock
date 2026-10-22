@@ -606,6 +606,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aaf95b3e5c8f23aa320147307562d361db0ae0d51242340f558153b4eb2439b"
 
 [[package]]
+name = "dunce"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
+
+[[package]]
 name = "ecdsa"
 version = "0.16.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1309,9 +1315,9 @@ dependencies = [
 
 [[package]]
 name = "keel"
-version = "0.19.0"
+version = "0.20.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "d9b8f09a3973c6efe70651db3f9db2d80eff2a31b28378cd1a7c560e5c3458a3"
+checksum = "4e6e9752f4e3851036af121e6aa1012cc94f5409e70df6cd97b5118f88e96606"
 dependencies = [
  "axum",
  "getrandom 0.3.4",
@@ -1326,9 +1332,9 @@ dependencies = [
 
 [[package]]
 name = "keel-gate"
-version = "0.19.0"
+version = "0.20.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "fedfcdcff4092c7b231de7b0c176139ce79b0808f3336dd127692c8c2adacb56"
+checksum = "b8241ee5de191d1614e524e88ae05ae720db7f78a51961ddf5deabec03052af4"
 dependencies = [
  "axum",
  "getrandom 0.3.4",
@@ -1339,9 +1345,9 @@ dependencies = [
 
 [[package]]
 name = "keel-macro"
-version = "0.19.0"
+version = "0.20.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "e32a3373fba831c16c0fca10bb7090ca1fa9b367fc9599f816dde397a4e0304b"
+checksum = "cac4ed5652a8d7a94b57cff916a6bfd2485b02281c826a9fce31b81e84c2b9e6"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1723,12 +1729,13 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
 name = "plumb"
-version = "0.103.7"
+version = "0.105.1"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "b510c34bb588cce0da60bc2cba9f6bda08bb05a4f9427dc9550db08b5420e5cc"
+checksum = "5e1bbf40467abba045d6e35fdf4ddbb63787e752ff2430ef26ad2dcc75179b72"
 dependencies = [
  "base64",
  "clap",
+ "dunce",
  "flate2",
  "locus",
  "object",
@@ -1745,13 +1752,14 @@ dependencies = [
  "toml_edit",
  "ureq",
  "which",
+ "winapi-util",
 ]
 
 [[package]]
 name = "plumb-macro"
-version = "0.103.7"
+version = "0.105.1"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "bb9cc146aa3c1ce61ec44abd9d043c8a6784f8fd75e0d6e2622b0858d323022e"
+checksum = "79cdefb6649101d660a022db50e08cd9445e6e863100c98cd2920081cf817222"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2946,6 +2954,15 @@ name = "whoami"
 version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "998767ef88740d1f5b0682a9c53c24431453923962269c2db68ee43788c5a40d"
+
+[[package]]
+name = "winapi-util"
+version = "0.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
+dependencies = [
+ "windows-sys 0.52.0",
+]
 
 [[package]]
 name = "windows-link"
