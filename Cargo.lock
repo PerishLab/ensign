@@ -1315,9 +1315,9 @@ dependencies = [
 
 [[package]]
 name = "keel"
-version = "0.20.0"
+version = "0.20.1"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "4e6e9752f4e3851036af121e6aa1012cc94f5409e70df6cd97b5118f88e96606"
+checksum = "b5b6a117acca6ec862b7bdbbf652bb7aab9a8c7c8504dcd0ec9250f804c6e5c2"
 dependencies = [
  "axum",
  "getrandom 0.3.4",
@@ -1332,9 +1332,9 @@ dependencies = [
 
 [[package]]
 name = "keel-gate"
-version = "0.20.0"
+version = "0.20.1"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "b8241ee5de191d1614e524e88ae05ae720db7f78a51961ddf5deabec03052af4"
+checksum = "bd23cf89045e4ccb01de57ffc2330abf7a0fe2011cbe5f6b66bc498c7224b1a6"
 dependencies = [
  "axum",
  "getrandom 0.3.4",
@@ -1345,9 +1345,9 @@ dependencies = [
 
 [[package]]
 name = "keel-macro"
-version = "0.20.0"
+version = "0.20.1"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "cac4ed5652a8d7a94b57cff916a6bfd2485b02281c826a9fce31b81e84c2b9e6"
+checksum = "2aecded19a592cca3543b61a01c43a802a7f30027af5cb5200d10b70929f07b1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1729,9 +1729,9 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
 name = "plumb"
-version = "0.105.1"
+version = "0.106.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "5e1bbf40467abba045d6e35fdf4ddbb63787e752ff2430ef26ad2dcc75179b72"
+checksum = "05e5c3fe183b1f1025c28af35141d9d9ace7449efe5dda390f64d68876d82c02"
 dependencies = [
  "base64",
  "clap",
@@ -1757,9 +1757,9 @@ dependencies = [
 
 [[package]]
 name = "plumb-macro"
-version = "0.105.1"
+version = "0.106.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "79cdefb6649101d660a022db50e08cd9445e6e863100c98cd2920081cf817222"
+checksum = "048fa8145a81878bab3ee017ea95ab0e37658d7a7e3866da967872b8c8df8787"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2203,6 +2203,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
+name = "signal-hook-registry"
+version = "1.4.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c4db69cba1110affc0e9f7bcd48bbf87b3f4fc7c61fc9155afd4c469eb3d6c1b"
+dependencies = [
+ "errno",
+ "libc",
+]
+
+[[package]]
 name = "signature"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2613,6 +2623,7 @@ dependencies = [
  "libc",
  "mio",
  "pin-project-lite",
+ "signal-hook-registry",
  "socket2",
  "tokio-macros",
  "windows-sys 0.61.2",
