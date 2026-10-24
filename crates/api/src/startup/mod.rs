@@ -7,8 +7,10 @@ use crate::artifact::{self, Artifact};
 use crate::config::{self, Hold, Kind, Runtime};
 use crate::oidc::Keys;
 use crate::recovery;
+use crate::util::voice;
 use crate::{Booth, oidc, shape};
 use axum::Router;
+use axum::middleware::from_fn;
 use keel::adapt::db::Sqlite;
 use keel::adapt::pg::Postgres;
 use keel::{Core, Status, Wire, app, bind};
@@ -191,7 +193,10 @@ pub fn router<W: Wire + 'static>(booth: Booth<W>, iss: String, keys: Keys, prefi
     let core = booth.core.clone();
     let gate = booth.gate.clone();
     let flags = oidc::Oidc::new(&booth, iss, keys).plate();
-    let base = app(core, prefix).merge(booth.plate()).merge(flags);
+    let base = app(core, prefix)
+        .merge(booth.plate())
+        .merge(flags)
+        .layer(from_fn(voice));
     Router::new().nest(PREFIX, gate.screen(base))
 }
 

@@ -6,6 +6,8 @@ mod acceptance {
     mod oidc;
     mod refresh;
     mod rescue;
+    #[path = "rig/shaky.rs"]
+    mod shaky;
     mod smoke;
     #[path = "rig/stage.rs"]
     mod stage;

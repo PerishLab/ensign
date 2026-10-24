@@ -1,17 +1,56 @@
 use argon2::Argon2;
 use argon2::password_hash::rand_core::OsRng;
 use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
+use axum::Json;
+use axum::extract::Request;
 use axum::http::StatusCode;
-use serde_json::{Map, Value};
+use axum::middleware::Next;
+use axum::response::{IntoResponse, Response};
+use keel::adapt::{Error, Store};
+use serde_json::{Map, Value, json};
+use std::cell::RefCell;
+
+tokio::task_local! {
+    static HELD: RefCell<Option<(StatusCode, String)>>;
+}
 
 pub(crate) trait Sound<T> {
     fn sound(self) -> Result<T, StatusCode>;
 }
 
-impl<T> Sound<T> for Result<T, keel::adapt::Error> {
+impl<T> Sound<T> for Result<T, Error> {
     fn sound(self) -> Result<T, StatusCode> {
-        self.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+        self.map_err(|err| lift(&err, StatusCode::INTERNAL_SERVER_ERROR))
     }
+}
+
+pub(crate) fn lift(error: &Error, other: StatusCode) -> StatusCode {
+    let Error::Store(store) = error else {
+        return other;
+    };
+    eprintln!("ensign: {store}: {}", store.detail());
+    let status = match store {
+        Store::Down(_) => StatusCode::SERVICE_UNAVAILABLE,
+        Store::Taken(_) => StatusCode::CONFLICT,
+        Store::Fault(_) => StatusCode::INTERNAL_SERVER_ERROR,
+    };
+    let _ = HELD.try_with(|held| *held.borrow_mut() = Some((status, store.to_string())));
+    status
+}
+
+fn answer(res: Response) -> Response {
+    let Some((status, note)) = HELD.with(|held| held.borrow_mut().take()) else {
+        return res;
+    };
+    if res.status() != status {
+        return res;
+    }
+    (status, Json(json!({ "error": note }))).into_response()
+}
+
+pub(crate) async fn voice(req: Request, next: Next) -> Response {
+    HELD.scope(RefCell::new(None), async { answer(next.run(req).await) })
+        .await
 }
 
 pub(crate) fn text(body: &Map<String, Value>, name: &str) -> Result<String, StatusCode> {
