@@ -4,7 +4,7 @@ mod plate;
 use face::{known, shown};
 
 use crate::booth::{Booth, PASS};
-use crate::util::{Sound, lock, pct, text};
+use crate::util::{Sound, lift, lock, pct, text};
 use axum::http::{HeaderMap, StatusCode};
 use axum::{Extension, Json};
 use keel::serve::admit;
@@ -25,7 +25,7 @@ impl<W: Wire + 'static> Booth<W> {
         let code = wild();
         face.put("Invite", &[("hash", &digest(&code)), ("note", note)])
             .await
-            .map_err(|_| StatusCode::FORBIDDEN)?;
+            .map_err(|err| lift(&err, StatusCode::FORBIDDEN))?;
         Ok((StatusCode::CREATED, Json(json!({ "code": code }))))
     }
 
@@ -81,7 +81,7 @@ impl<W: Wire + 'static> Booth<W> {
             .await;
         match made {
             Ok(key) => Ok((StatusCode::CREATED, Json(json!({ "id": key })))),
-            Err(err) => Err(gauge(&err.to_string())),
+            Err(err) => Err(lift(&err, gauge(&err.to_string()))),
         }
     }
 
@@ -206,7 +206,7 @@ impl<W: Wire + 'static> Booth<W> {
         let held = match self.guard(seat).await {
             Ok(Some(held)) => held,
             Ok(None) => return Err(StatusCode::FORBIDDEN),
-            Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+            Err(err) => return Err(lift(&err, StatusCode::INTERNAL_SERVER_ERROR)),
         };
         let fit = tokio::task::spawn_blocking(move || crate::util::fits(&old, &held))
             .await
@@ -251,15 +251,15 @@ impl<W: Wire + 'static> Booth<W> {
             Ok(Some(false)) => {}
             Ok(Some(true)) => return Err(StatusCode::FORBIDDEN),
             Ok(None) => return Err(StatusCode::UNAUTHORIZED),
-            Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+            Err(err) => return Err(lift(&err, StatusCode::INTERNAL_SERVER_ERROR)),
         }
         let _ = spare;
         let hash = tokio::task::spawn_blocking(move || lock(&pass))
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        if self.recover(key, seat, &hash).await.is_err() {
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        if let Err(err) = self.recover(key, seat, &hash).await {
+            return Err(lift(&err, StatusCode::INTERNAL_SERVER_ERROR));
         }
         Ok(StatusCode::NO_CONTENT)
     }

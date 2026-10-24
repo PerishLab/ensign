@@ -1,6 +1,6 @@
 pub(crate) const PASS: &str = "pass";
 
-use crate::util::{Sound, fits};
+use crate::util::{Sound, fits, lift};
 use axum::Json;
 use axum::http::{HeaderMap, StatusCode};
 use keel::{Core, Op, Wire, form};
@@ -85,7 +85,7 @@ impl<W: Wire + 'static> Booth<W> {
         let held = match self.guard(seat).await {
             Ok(Some(held)) => held,
             Ok(None) => return Err(StatusCode::UNAUTHORIZED),
-            Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+            Err(err) => return Err(lift(&err, StatusCode::INTERNAL_SERVER_ERROR)),
         };
         let owned = pass.to_string();
         let fit = tokio::task::spawn_blocking(move || fits(&owned, &held))
@@ -98,7 +98,7 @@ impl<W: Wire + 'static> Booth<W> {
             Ok(Some(false)) => Ok(key),
             Ok(Some(true)) => Err(StatusCode::FORBIDDEN),
             Ok(None) => Err(StatusCode::UNAUTHORIZED),
-            Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+            Err(err) => Err(lift(&err, StatusCode::INTERNAL_SERVER_ERROR)),
         }
     }
 

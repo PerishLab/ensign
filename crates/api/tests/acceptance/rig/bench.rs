@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use super::shaky::{Knob, Shaky};
 use super::stage::{Unit, serial, store};
 use super::wire::{Ask, Head, Line, Reply, Wire};
 use api::{Artifact, Berth, Booth};
@@ -32,6 +33,14 @@ impl Bench {
     }
 
     pub fn with(slugs: &[&str]) -> Self {
+        Self::build(slugs, None)
+    }
+
+    pub fn shaky(knob: Arc<Knob>) -> Self {
+        Self::build(&[], Some(knob))
+    }
+
+    fn build(slugs: &[&str], knob: Option<Arc<Knob>>) -> Self {
         let hold = serial();
         let room = tempfile::tempdir().expect("bench room");
         let nest = room.path().to_path_buf();
@@ -39,16 +48,7 @@ impl Bench {
             .enable_all()
             .build()
             .expect("bench runtime");
-        let (router, sudo) = spin.block_on(async {
-            match store() {
-                Some(url) => {
-                    let mut held = Postgres::at(url).await.expect("pg");
-                    held.wipe().await.expect("wipe");
-                    raise(held, &nest, slugs).await
-                }
-                None => raise(Sqlite::memory().await.expect("db"), &nest, slugs).await,
-            }
-        });
+        let (router, sudo) = spin.block_on(stock(&nest, slugs, knob));
         Self {
             origin: ISSUER.trim_end_matches("/api").to_string(),
             base: ISSUER.to_string(),
@@ -76,6 +76,26 @@ impl Bench {
 
     pub fn crown(&self) -> Vec<(String, String)> {
         vec![("authorization".into(), format!("sudo {}", self.sudo))]
+    }
+}
+
+async fn stock(nest: &Path, slugs: &[&str], knob: Option<Arc<Knob>>) -> (Router, String) {
+    match (store(), knob) {
+        (Some(url), Some(knob)) => {
+            let mut held = Postgres::at(url).await.expect("pg");
+            held.wipe().await.expect("wipe");
+            raise(Shaky::new(held, knob), nest, slugs).await
+        }
+        (Some(url), None) => {
+            let mut held = Postgres::at(url).await.expect("pg");
+            held.wipe().await.expect("wipe");
+            raise(held, nest, slugs).await
+        }
+        (None, Some(knob)) => {
+            let held = Sqlite::memory().await.expect("db");
+            raise(Shaky::new(held, knob), nest, slugs).await
+        }
+        (None, None) => raise(Sqlite::memory().await.expect("db"), nest, slugs).await,
     }
 }
 
