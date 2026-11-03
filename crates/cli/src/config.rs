@@ -1,7 +1,8 @@
-use plumb::config::Cascade;
+use radicula_config::Cascade;
 use std::path::PathBuf;
 
 #[derive(Debug, PartialEq, Cascade)]
+#[plumb::config::prefix]
 pub struct Profile {
     pub url: String,
     pub home: String,
@@ -20,7 +21,7 @@ impl Default for Profile {
 }
 
 pub fn profile() -> Result<Profile, String> {
-    Profile::resolve(None).map_err(|err| err.to_string())
+    Profile::resolve(None, &Profile::prefix(), &plumb::config::value).map_err(|err| err.to_string())
 }
 
 pub fn base() -> Result<String, String> {

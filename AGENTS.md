@@ -115,8 +115,9 @@ which consumers mount read-only.
 - Ectropy owns syntax laws (single word, block/path <= 4, no comments);
   Plumb owns repository shape and the canonical `ectropy.toml`. Vocabulary is
   expressed by the executable source and checked by Ectropy.
-- Dependency direction: ensign -> keel-gate -> keel, plus plumb for the
-  config mechanism and the release identity only (never its vocabulary).
+- Dependency direction: ensign -> keel-gate -> keel, plus radicula-config for
+  the config mechanism and plumb for application prefix/get and release identity
+  (never its vocabulary).
   Never a workspace sibling of keel; distribution follows keel's channel.
 - Runtime env rides the cascade under the `api` package's `API_` prefix
   (`API_STORE_KIND` / `API_STORE_URL` / `API_STORE_PATH` / `API_FRESH` /
