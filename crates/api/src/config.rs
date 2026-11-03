@@ -1,9 +1,10 @@
-use plumb::config::{Cascade, Env};
+use radicula_config::{Cascade, Env};
 use std::path::Path;
 
 pub const NAME: &str = "ensign.toml";
 
 #[derive(Debug, Default, PartialEq, Cascade)]
+#[plumb::config::prefix]
 pub struct Runtime {
     pub fresh: bool,
     pub iss: String,
@@ -88,9 +89,7 @@ pub struct Store {
     pub url: String,
 }
 
-pub fn load(start: &Path) -> Result<Runtime, plumb::config::Error> {
-    match plumb::config::discover(start, NAME) {
-        Ok(found) => Runtime::resolve(Some(&found)),
-        Err(_) => Runtime::resolve(None),
-    }
+pub fn load(start: &Path) -> Result<Runtime, radicula_config::Error> {
+    let found = plumb::config::discover(start, NAME).ok();
+    Runtime::resolve(found.as_deref(), &Runtime::prefix(), &plumb::config::value)
 }
