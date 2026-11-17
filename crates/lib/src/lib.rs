@@ -1,4 +1,3 @@
-pub mod config;
 mod custody;
 mod transport;
 
@@ -9,6 +8,7 @@ use serde_json::{Value, json};
 pub struct Client {
     base: String,
     token: Secret,
+    store: custody::Store,
 }
 
 #[derive(Debug, Deserialize)]
@@ -28,13 +28,22 @@ pub struct Identity {
 }
 
 impl Client {
-    pub fn retained() -> Result<Self, String> {
-        let (base, token) = custody::load()?;
-        Ok(Self { base, token })
+    pub fn open(home: &std::path::Path) -> Result<Self, String> {
+        let store = custody::Store::new(home);
+        let (base, token) = store.load()?;
+        Ok(Self { base, token, store })
     }
 
-    pub fn login(login: &str, password: &str) -> Result<Self, String> {
-        let base = config::base()?;
+    pub fn login(
+        home: &std::path::Path,
+        base: &str,
+        login: &str,
+        password: &str,
+    ) -> Result<Self, String> {
+        let store = custody::Store::new(home);
+        if base.is_empty() {
+            return Err("Ensign endpoint is required".into());
+        }
         let (code, body) = transport::call(
             "POST",
             &format!("{base}/bearer"),
@@ -49,10 +58,11 @@ impl Client {
             .and_then(Value::as_str)
             .filter(|token| !token.is_empty())
             .ok_or("sign in: no token")?;
-        custody::save(&base, token)?;
+        store.save(base, token)?;
         Ok(Self {
-            base,
+            base: base.into(),
             token: Secret::new(token.into()),
+            store,
         })
     }
 
@@ -95,7 +105,7 @@ impl Client {
         if code != 204 {
             return Err(format!("revoke: failed ({code})"));
         }
-        custody::wipe()
+        self.store.wipe()
     }
 
     pub fn discovery(&self) -> Result<Discovery, String> {

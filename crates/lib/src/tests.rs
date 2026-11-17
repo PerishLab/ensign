@@ -35,6 +35,7 @@ fn reply(body: &str) -> (Client, JoinHandle<String>) {
         Client {
             base,
             token: Secret::new("held-login-only".into()),
+            store: super::custody::Store::new(std::path::Path::new("unused")),
         },
         job,
     )
@@ -86,8 +87,22 @@ fn subject() {
 }
 
 #[test]
-fn prefix() {
-    assert_eq!(super::config::Profile::prefix(), "ENSIGN");
+fn context() {
+    let root = tempfile::tempdir().unwrap();
+    let first = root.path().join("first");
+    let second = root.path().join("second");
+    super::custody::Store::new(&first)
+        .save("https://first.example/api", "first-login")
+        .unwrap();
+    super::custody::Store::new(&second)
+        .save("https://second.example/api", "second-login")
+        .unwrap();
+    let first = Client::open(&first).unwrap();
+    let second = Client::open(&second).unwrap();
+    assert_eq!(first.base(), "https://first.example/api");
+    assert_eq!(second.base(), "https://second.example/api");
+    assert_eq!(first.token.expose(), "first-login");
+    assert_eq!(second.token.expose(), "second-login");
 }
 
 fn length(header: &str) -> usize {
