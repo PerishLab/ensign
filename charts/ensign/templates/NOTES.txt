@@ -52,7 +52,8 @@ Seed the first administrator with the cli, which reads sudo from stdin:
 Sudo is the one pre-identity axiom. Use it to open the first invite and to
 crown the first administrator, then leave it dormant for lockout recovery.
 
-Only the api is routed. The web plane is deferred until its delivery paradigm
-matures; it returns as an addition, not a migration.
+The API binary also serves the browser sign-in and sign-out pages. Route the
+issuer hostname at / so /login, /logout and /assets are available beside /api.
+Use /login to sign in; the API root below remains the CLI and OIDC issuer.
 
   {{ if .Values.ingress.enabled }}{{ $ann := .Values.ingress.annotations | default dict }}{{ if or .Values.ingress.tls (eq (get $ann "traefik.ingress.kubernetes.io/router.tls") "true") }}https{{ else }}http{{ end }}://{{ .Values.ingress.host }}/api{{ else }}(ingress disabled — port-forward svc/{{ .Release.Name }}-api:{{ .Values.api.port }}){{ end }}
