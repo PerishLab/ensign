@@ -1,0 +1,46 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-bootstrap-r{{ .Release.Revision }}
+spec:
+  backoffLimit: 6
+  activeDeadlineSeconds: 600
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-bootstrap
+    spec:
+      serviceAccountName: {{ .Release.Name }}-bootstrap
+      restartPolicy: OnFailure
+      containers:
+        - name: bootstrap
+          image: "{{ .Values.api.image }}:{{ .Values.api.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.api.pullPolicy }}
+          args:
+            - bootstrap
+            - /ensign
+            - --artifact
+            - sudo=kubernetes:{{ .Release.Name }}-sudo
+            - --artifact
+            - signing=kubernetes:{{ .Release.Name }}-signing
+          env:
+            - name: API_STORE_KIND
+              value: "pg"
+            - name: API_STORE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ensign.storeseat" . }}
+                  key: {{ include "ensign.storekey" . }}
+            {{- if .Values.issuer }}
+            - name: API_ISS
+              value: {{ .Values.issuer | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /ensign/ensign.toml
+              subPath: ensign.toml
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-config
