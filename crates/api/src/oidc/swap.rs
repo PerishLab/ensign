@@ -5,8 +5,8 @@ use axum::http::{HeaderMap, HeaderValue};
 use keel::Wire;
 use serde_json::json;
 
-pub(crate) const SWAP: &str = "urn:ietf:params:oauth:grant-type:token-exchange";
-const ACCESS: &str = "urn:ietf:params:oauth:token-type:access_token";
+use radicula_oidc::exchange::ACCESS;
+pub(crate) use radicula_oidc::exchange::GRANT as SWAP;
 
 impl<W: Wire + 'static> Oidc<W> {
     pub(crate) async fn swap(&self, grant: Grant) -> Grip {

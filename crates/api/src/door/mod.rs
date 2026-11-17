@@ -141,7 +141,18 @@ impl<W: Wire + 'static> Booth<W> {
             return Err(StatusCode::UNAUTHORIZED);
         };
         let (login, name) = self.tag(me).await.sound()?.ok_or(StatusCode::NOT_FOUND)?;
-        Ok(Json(json!({ "id": me, "login": login, "name": name })))
+        let ask = form("Actor").when("id", Op::Eq, &me.to_string());
+        let actor = self
+            .core
+            .of(self.svc)
+            .one(&ask)
+            .await
+            .sound()?
+            .ok_or(StatusCode::UNAUTHORIZED)?;
+        let sub = actor.text("sub").ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
+        Ok(Json(
+            json!({ "id": me, "sub": sub, "login": login, "name": name }),
+        ))
     }
 
     pub(crate) async fn auth(

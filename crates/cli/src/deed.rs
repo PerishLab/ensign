@@ -1,20 +1,15 @@
-use crate::wire::{Reply, ask, base, call, fault, field, save, seat, send, wipe};
+use crate::wire::{Reply, ask, base, call, fault, field, seat, send};
 use serde_json::{Value, json};
 
 pub(crate) fn logout() -> Reply {
-    let (base, token) = seat()?;
-    let (code, _) = call("DELETE", &format!("{base}/bearer"), Some(&token), None)?;
-    wipe()?;
-    if code != 204 {
-        return Err(fault("revoke", code));
-    }
+    seat()?.logout()?;
     println!("signed out");
     Ok(())
 }
 
 pub(crate) fn whoami() -> Reply {
-    let (base, token) = seat()?;
-    let (code, body) = call("GET", &format!("{base}/whoami"), Some(&token), None)?;
+    let client = seat()?;
+    let (code, body) = client.call("GET", "/whoami", None)?;
     if code != 200 {
         return Err(fault("whoami", code));
     }
@@ -26,8 +21,8 @@ pub(crate) fn whoami() -> Reply {
 }
 
 pub(crate) fn list(unit: &str, cols: &[&str]) -> Reply {
-    let (base, token) = seat()?;
-    let (code, body) = call("GET", &format!("{base}/{unit}"), Some(&token), None)?;
+    let client = seat()?;
+    let (code, body) = client.call("GET", &format!("/{unit}"), None)?;
     if code != 200 {
         return Err(fault("list", code));
     }
@@ -44,22 +39,9 @@ pub(crate) struct Rest<'a>(pub(crate) &'a [String]);
 impl Rest<'_> {
     pub(crate) fn login(&self) -> Reply {
         let who = self.0.first().ok_or("login takes a login name")?;
-        let base = base()?;
         let pass = ask("password")?;
-        let (code, body) = call(
-            "POST",
-            &format!("{base}/bearer"),
-            None,
-            Some(json!({ "login": who, "pass": pass.trim(), "name": "cli" })),
-        )?;
-        if code != 201 {
-            return Err(fault("sign in", code));
-        }
-        let token = body
-            .get("token")
-            .and_then(Value::as_str)
-            .ok_or("no token in the reply")?;
-        save(&base, token)?;
+        let client = ensign::Client::login(who, pass.trim())?;
+        let base = client.base();
         println!("signed in to {base} as {who}");
         Ok(())
     }
@@ -151,14 +133,9 @@ impl Rest<'_> {
     }
 
     pub(crate) fn invite(&self) -> Reply {
-        let (base, token) = seat()?;
+        let client = seat()?;
         let note = self.0.first().map(String::as_str).unwrap_or("");
-        let (code, body) = call(
-            "POST",
-            &format!("{base}/invite"),
-            Some(&token),
-            Some(json!({ "note": note })),
-        )?;
+        let (code, body) = client.call("POST", "/invite", Some(json!({ "note": note })))?;
         if code != 201 {
             return Err(fault("open an invite", code));
         }
@@ -167,14 +144,9 @@ impl Rest<'_> {
     }
 
     pub(crate) fn team(&self) -> Reply {
-        let (base, token) = seat()?;
+        let client = seat()?;
         let name = self.0.first().ok_or("team takes a name")?;
-        let (code, _) = call(
-            "POST",
-            &format!("{base}/Team"),
-            Some(&token),
-            Some(json!({ "name": name })),
-        )?;
+        let (code, _) = client.call("POST", "/Team", Some(json!({ "name": name })))?;
         if code != 201 {
             return Err(fault("found a team", code));
         }
@@ -183,14 +155,13 @@ impl Rest<'_> {
     }
 
     pub(crate) fn app(&self) -> Reply {
-        let (base, token) = seat()?;
+        let client = seat()?;
         if self.0.len() < 4 {
             return Err("app takes <name> <slug> <home> <redirect>".into());
         }
-        let (code, _) = call(
+        let (code, _) = client.call(
             "POST",
-            &format!("{base}/App"),
-            Some(&token),
+            "/App",
             Some(json!({
                 "name": self.0[0],
                 "slug": self.0[1],

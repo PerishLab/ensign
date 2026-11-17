@@ -15,8 +15,10 @@ keel's `AGENTS.md` and source; this repo obeys them from the outside.
 
 - `crates/api` — the server; the keel caller (package `api`, bin
   `ensign-api`).
-- `crates/cli` — the client (bin `ensign`); the anchor crate bearing the
-  repository name.
+- `crates/lib` — the public `ensign` client library; the anchor crate owning
+  configuration, retained login custody, identity and audience token exchange.
+- `crates/cli` — package `ensign-cli`, binary `ensign`; uses the public client.
+  The `ENSIGN_` configuration prefix and existing credential format remain.
 - `charts/ensign` — the helm delivery; it declares version `0.0.0` and wharf
   stamps the release marker onto it. Its ConfigMap supplies `ensign.toml`.
 - `Containerfile` — the server image. Its build context is only this file and
@@ -117,7 +119,8 @@ which consumers mount read-only.
   Plumb owns repository shape and the canonical `ectropy.toml`. Vocabulary is
   expressed by the executable source and checked by Ectropy.
 - Dependency direction: ensign -> keel-gate -> keel, plus radicula-config for
-  the config mechanism and plumb for application prefix/get and release identity
+  the config mechanism, radicula-oidc for shared JWT/PKCE/exchange protocol,
+  and plumb for application prefix/get and release identity
   (never its vocabulary).
   Never a workspace sibling of keel; distribution follows keel's channel.
 - Runtime env rides the cascade under the `api` package's `API_` prefix

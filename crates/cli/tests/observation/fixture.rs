@@ -25,11 +25,17 @@ impl Fixture {
     }
 
     pub(super) fn credential(&self, base: &str) {
+        let path = self.home().join("state/pat.json");
         std::fs::write(
-            self.home().join("state/pat.json"),
+            &path,
             serde_json::to_vec(&json!({"schema":1,"base":base,"token":"private-token"})).unwrap(),
         )
         .unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        }
     }
 
     pub(super) fn configure(&self, text: &str) {

@@ -3,7 +3,7 @@
 [[layout.seat]]
 path = "crates/*"
 anchor = ["Cargo.toml"]
-note = "The ensign-api server, a keel caller, and the ensign CLI."
+note = "The public Ensign client, CLI and API server."
 
 [[layout.seat]]
 path = "apps/*"
@@ -50,6 +50,10 @@ targets = [
   "x86_64-pc-windows-msvc",
 ]
 skill = true
+
+[release.cargo]
+registry = "perish"
+packages = ["ensign"]
 
 [release.binary.ensign-api]
 targets = ["x86_64-unknown-linux-gnu"]

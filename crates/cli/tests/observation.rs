@@ -59,7 +59,7 @@ fn buffered() {
                 .iter()
                 .filter(|atom| atom["source"]["edge"] == edge)
                 .count(),
-            15
+            7
         );
     }
     for name in ["whoami", "login", "actors", "cookbook", "skill"] {
