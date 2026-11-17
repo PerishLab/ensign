@@ -86,8 +86,20 @@ fn floor() {
 fn logout() {
     let (stage, wire) = open();
     let face = wire.enrol(&stage.crown(), "ada");
+    let page = wire.fetch(&format!("{}/logout", stage.origin), &face.head);
+    assert_eq!(page.status, 200, "logout page");
+    assert_eq!(
+        wire.get("/whoami", &face.head).status,
+        200,
+        "GET preserves session"
+    );
     let out = wire.post("/logout", json!({}), &face.head);
     assert_eq!(out.status, 204, "logout");
+    let cleared = out.header("set-cookie").expect("expired browser cookie");
+    assert!(cleared.starts_with("session=;"));
+    for part in ["Path=/", "HttpOnly", "SameSite=Lax", "Max-Age=0"] {
+        assert!(cleared.contains(part), "cookie {cleared}");
+    }
     let gone = wire.get("/whoami", &face.head);
     assert_eq!(gone.status, 401, "dead session");
 }

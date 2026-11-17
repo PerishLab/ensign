@@ -8,7 +8,7 @@ note = "The ensign-api server, a keel caller, and the ensign CLI."
 [[layout.seat]]
 path = "apps/*"
 anchor = []
-note = "The deferred web plane; the seat is held so the delivery paradigm can return."
+note = "Browser identity assets embedded in the API binary and their self-contained tests."
 
 [[layout.seat]]
 path = "deploy"

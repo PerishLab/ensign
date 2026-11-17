@@ -48,6 +48,17 @@ refresh grant and no session, never accepts a password, and refuses an
 audience that is not a registered `resource`. People still prove possession
 through the password floor and OIDC code + PKCE.
 
+## Browser
+
+The API binary carries the same-origin browser surface from tracked HTML, CSS,
+and JavaScript. `/login` uses the existing password/session ceremony and returns
+only to a validated local destination; the default signed-in view stays put.
+`/logout` requires an explicit action, revokes the existing session and expires
+its HttpOnly cookie. Passwords are submitted in JSON request bodies and are not
+retained by the browser code. The API and CLI recovery floor remains independent
+of page availability. No separate web process or runtime asset acquisition is
+introduced. These plain identity forms make no Crest/Design brand qualification.
+
 ## Possessions
 
 The ES256 signing key is app-owned durable bytes created only by explicit

@@ -53,3 +53,10 @@ can replay, and a still-running older revision can overlap a new ceremony; the
 binary retains its refusal and conflict handling. Each operation has its own
 bootstrap Job, with finished Job evidence retained for up to one day. An older chart rollback also restores that chart's permissions and
 update policy. Recovery and formal rollout acceptance remain separate operations.
+
+The Ingress routes the whole issuer host to the API service: `/api` carries JSON
+and OIDC endpoints, while `/login`, `/logout`, and `/assets/*` are the browser
+surface embedded in that same binary. Use a dedicated issuer host so this root
+route does not take over another application's paths. The chart needs no
+separate web image or Node process. Browser session logout is distinct from CLI
+bearer logout; the page revokes the session and clears its cookie.

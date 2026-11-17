@@ -115,12 +115,22 @@ impl<W: Wire + 'static> Booth<W> {
         }
     }
 
-    pub(crate) async fn logout(&self, headers: HeaderMap) -> Result<StatusCode, StatusCode> {
+    pub(crate) async fn logout(
+        &self,
+        headers: HeaderMap,
+    ) -> Result<(StatusCode, HeaderMap), StatusCode> {
         let sid = crumb(&headers).ok_or(StatusCode::BAD_REQUEST)?;
-        match self.gate.logout(&sid).await {
-            Ok(()) => Ok(StatusCode::NO_CONTENT),
-            Err(deny) => Err(deny.status()),
-        }
+        self.gate.logout(&sid).await.map_err(|deny| deny.status())?;
+        let mut headers = HeaderMap::new();
+        let secure = if self.secure { "; Secure" } else { "" };
+        let cookie = format!("session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0{secure}");
+        headers.insert(
+            axum::http::header::SET_COOKIE,
+            cookie
+                .parse()
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
+        );
+        Ok((StatusCode::NO_CONTENT, headers))
     }
 
     pub(crate) async fn who(

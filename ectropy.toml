@@ -6,11 +6,21 @@ syntax = "style"
 allow = false
 
 [[grant]]
+paths = ["crates/api/src/startup/site.rs"]
+syntax = "embed"
+
+[[grant]]
 paths = ["crates/cli/src/cookbook.rs"]
 syntax = "embed"
 
 [[grant]]
 paths = [
+    "apps/*/tests/**/*.test.cjs",
+    "apps/*/tests/**/*.test.cts",
+    "apps/*/tests/**/*.test.js",
+    "apps/*/tests/**/*.test.jsx",
+    "apps/*/tests/**/*.test.mjs",
+    "apps/*/tests/**/*.test.mts",
     "apps/*/tests/**/*.test.ts",
     "apps/*/tests/**/*.test.tsx",
     "crates/*/src/**/*.rs",
@@ -20,6 +30,12 @@ syntax = "test"
 
 [[grant]]
 paths = [
+    "apps/*/tests/**/*.test.cjs",
+    "apps/*/tests/**/*.test.cts",
+    "apps/*/tests/**/*.test.js",
+    "apps/*/tests/**/*.test.jsx",
+    "apps/*/tests/**/*.test.mjs",
+    "apps/*/tests/**/*.test.mts",
     "apps/*/tests/**/*.test.ts",
     "apps/*/tests/**/*.test.tsx",
     "apps/web/vite.config.ts",
@@ -53,7 +69,13 @@ exclude = [
     "**/target/**",
 ]
 include = [
+    "apps/**/*.cjs",
     "apps/**/*.css",
+    "apps/**/*.cts",
+    "apps/**/*.js",
+    "apps/**/*.jsx",
+    "apps/**/*.mjs",
+    "apps/**/*.mts",
     "apps/**/*.scss",
     "apps/**/*.ts",
     "apps/**/*.tsx",
