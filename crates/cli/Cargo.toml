@@ -1,5 +1,5 @@
 [package]
-name = "ensign"
+name = "ensign-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,6 +12,7 @@ name = "ensign"
 path = "src/main.rs"
 
 [dependencies]
+ensign.workspace = true
 radicula-config.workspace = true
 locus.workspace = true
 serde.workspace = true

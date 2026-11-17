@@ -86,3 +86,24 @@ to authorities; it does not copy command grammar. The client help owns client
 grammar, `ensign-api --help` remains the server grammar authority, and only
 bootstrap or signing failures that require custody judgment name Cookbook
 codes. Routine refusals stay self-contained.
+
+
+## Public client
+
+The public Cargo package `ensign` owns client configuration and retained login
+custody. The executable package is `ensign-cli`; its binary remains `ensign`.
+Configuration keeps the `ENSIGN_` prefix and the schema-1 credential location.
+Consumers reuse a held login through the public client instead of reading its
+private credential document. The public client never exports that login bearer.
+
+Identity reconciliation exposes existing Actor.sub, independently of local row
+IDs and display names. Discovery is an observed document, not a trust decision.
+A caller qualifies the canonical issuer and external subject, selects a registered
+resource audience and requests a short-lived access token through RFC8693.
+Radicula owns the shared JWT, PKCE and exchange protocol. Ensign owns issuer
+keys, live identity checks, audience registration and login custody. A token
+response does not establish a supplier role or any resource permission.
+
+Supplier provider objects, roles, trust policies and permission attachments
+remain supplier resources owned by the resource product. They introduce no
+Ensign Actor kind, role table, cloud-account row or Keel/gate semantics.

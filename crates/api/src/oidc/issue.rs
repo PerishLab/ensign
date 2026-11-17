@@ -1,10 +1,10 @@
 use crate::oidc::plain::{seal, sour, spoil};
-use crate::oidc::{Bearing, Claims, Grant, Grip, LIFE, Oidc, RENEW, Ticket};
+use crate::oidc::{Bearing, Grant, Grip, LIFE, Oidc, RENEW, Ticket};
 use axum::Json;
-use jsonwebtoken::{Algorithm, Header, encode};
 use keel::Wire;
 use keel::life::tick;
 use keel_gate::wild;
+use radicula_oidc::jwt::{Algorithm, Audience, Claims, Signer};
 use serde_json::json;
 
 impl<W: Wire + 'static> Oidc<W> {
@@ -21,7 +21,7 @@ impl<W: Wire + 'static> Oidc<W> {
             return Err(sour("invalid_grant"));
         }
         let verifier = grant.verifier.ok_or_else(|| sour("invalid_request"))?;
-        if seal(&verifier) != code.challenge {
+        if radicula_oidc::pkce::verify(&verifier, &code.challenge).is_err() {
             return Err(sour("invalid_grant"));
         }
         self.grip(&code.bearing, code.nonce).await
@@ -119,22 +119,35 @@ impl<W: Wire + 'static> Oidc<W> {
         face.lease("Renew", row, tick() + RENEW).await
     }
 
-    pub(crate) fn sign(&self, ticket: &Ticket) -> Result<String, jsonwebtoken::errors::Error> {
-        let mut head = Header::new(Algorithm::ES256);
-        head.kid = Some(self.keys.kid.clone());
+    pub(crate) fn sign(&self, ticket: &Ticket) -> Result<String, radicula_oidc::Fault> {
+        let mut extra = serde_json::Map::new();
+        extra.insert("kind".into(), json!(ticket.kind));
+        if ticket.kind == "access" {
+            extra.insert("scope".into(), json!(ticket.scope));
+        }
+        if let Some(nonce) = &ticket.nonce {
+            extra.insert("nonce".into(), json!(nonce));
+        }
+        if ticket.wide {
+            extra.insert("login".into(), json!(ticket.who.login));
+            extra.insert("name".into(), json!(ticket.who.name));
+            extra.insert("teams".into(), json!(ticket.who.teams));
+        }
+        let now = tick() as u64;
         let claims = Claims {
             iss: self.iss.clone(),
             sub: ticket.sub.clone(),
-            aud: ticket.aud.clone(),
-            kind: ticket.kind.to_string(),
-            exp: tick() + LIFE,
-            iat: tick(),
-            scope: (ticket.kind == "access").then(|| ticket.scope.clone()),
-            nonce: ticket.nonce.clone(),
-            login: ticket.wide.then(|| ticket.who.login.clone()),
-            name: ticket.wide.then(|| ticket.who.name.clone()),
-            teams: ticket.wide.then(|| ticket.who.teams.clone()),
+            aud: Audience::One(ticket.aud.clone()),
+            exp: now + LIFE as u64,
+            iat: now,
+            nbf: None,
+            extra,
         };
-        encode(&head, &claims, &self.keys.enc)
+        let signer = Signer {
+            algorithm: Algorithm::ES256,
+            kid: self.keys.kid.clone(),
+            key: self.keys.enc.clone(),
+        };
+        signer.sign(&claims).map(|token| token.expose().to_string())
     }
 }

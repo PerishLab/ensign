@@ -17,6 +17,7 @@ path = "src/entry/main.rs"
 
 [dependencies]
 radicula-config.workspace = true
+radicula-oidc.workspace = true
 locus.workspace = true
 clap = { workspace = true }
 argon2 = { workspace = true }

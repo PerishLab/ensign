@@ -16,12 +16,12 @@ use crate::util::{Sound, pct};
 use axum::Json;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect, Response};
-use jsonwebtoken::{Algorithm, Validation, decode};
 use keel::life::tick;
 use keel::{Core, Op, Wire, form};
 use keel_gate::{Gate, wild};
 use plain::{safe, seal};
-use serde::{Deserialize, Serialize};
+use radicula_oidc::jwt::{Algorithm, Rules, Verifier};
+use serde::Deserialize;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -120,16 +120,23 @@ impl<W: Wire + 'static> Oidc<W> {
     }
 
     async fn look(&self, token: &str) -> Result<Json<Value>, StatusCode> {
-        let mut rule = Validation::new(Algorithm::ES256);
-        rule.set_issuer(&[&self.iss]);
-        rule.set_audience(&[&self.iss]);
-        let data =
-            decode::<Value>(token, &self.keys.dec, &rule).map_err(|_| StatusCode::UNAUTHORIZED)?;
-        let claims = &data.claims;
-        if claims.get("kind").and_then(Value::as_str) != Some("access") {
-            return Err(StatusCode::UNAUTHORIZED);
-        }
-        let sub = claims.get("sub").and_then(Value::as_str).unwrap_or("");
+        let verifier = Verifier {
+            algorithm: Algorithm::ES256,
+            kid: self.keys.kid.clone(),
+            key: self.keys.dec.clone(),
+        };
+        let rules = Rules {
+            issuer: &self.iss,
+            audience: &self.iss,
+            subject: None,
+            now: tick() as u64,
+            leeway: 60,
+            required: &[("kind", "access")],
+        };
+        let claims = verifier
+            .verify(token, &rules)
+            .map_err(|_| StatusCode::UNAUTHORIZED)?;
+        let sub = claims.sub.as_str();
         let id = self
             .named(sub)
             .await
@@ -141,6 +148,7 @@ impl<W: Wire + 'static> Oidc<W> {
             .sound()?
             .ok_or(StatusCode::NOT_FOUND)?;
         let wide = claims
+            .extra
             .get("scope")
             .and_then(Value::as_str)
             .unwrap_or("")
@@ -267,24 +275,4 @@ pub(crate) struct Who {
     login: String,
     name: String,
     teams: Vec<String>,
-}
-
-#[derive(Serialize)]
-pub(crate) struct Claims {
-    iss: String,
-    sub: String,
-    aud: String,
-    kind: String,
-    exp: i64,
-    iat: i64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    scope: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    nonce: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    login: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    teams: Option<Vec<String>>,
 }

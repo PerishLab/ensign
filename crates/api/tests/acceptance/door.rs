@@ -78,6 +78,9 @@ fn floor() {
     let me = wire.get("/whoami", &jar);
     assert_eq!(me.status, 200, "whoami");
     assert_eq!(me.text("login"), "ada", "whoami login");
+    let sub = me.text("sub");
+    assert!(!sub.is_empty(), "whoami external subject");
+    assert_eq!(wire.get("/whoami", &jar).text("sub"), sub, "stable subject");
     let anon = wire.get("/whoami", &bare());
     assert_eq!(anon.status, 401, "anon whoami");
 }
