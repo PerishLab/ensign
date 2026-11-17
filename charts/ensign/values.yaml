@@ -5,11 +5,9 @@ api:
   # A released tag is immutable, so IfNotPresent is right for delivery. Set
   # Always while iterating on a tag whose contents move under it.
   pullPolicy: IfNotPresent
-  # Keep at 1. keel caches grant rows per engine instance, so a second
-  # api pod keeps honouring a grant this one revoked until it writes.
-  # Raising this needs the keel cache off first. keel's AGENTS.md owns the
-  # cache law; its former docs/run/cache.md ("Authority is cached too", H-8)
-  # was retired in keel e647292.
+  # Exactly one API replica is supported. Recreate updates stop the old
+  # process before starting the replacement; expect an availability gap.
+  # Multiple API processes require a coherent Keel grant cache first.
   replicas: 1
   port: 8080
 # Public https API root ensign issues tokens under, including /api. MUST be set:

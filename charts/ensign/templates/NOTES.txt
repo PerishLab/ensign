@@ -1,6 +1,6 @@
 ensign is installed.
 
-Bootstrap, the api pod's initContainer, minted the genesis sudo token and kept
+Bootstrap, a separate finite Job, minted or reused the genesis sudo token and kept
 it in a Secret. It is never printed and never re-minted; read it when you need
 it:
 
@@ -23,13 +23,26 @@ not: an occupied estate whose sudo Secret is gone cannot be bootstrapped.
 Point at an external PostgreSQL with postgres.urlSecret.name and .key, and the
 chart holds no credential at all.
 
-One ServiceAccount covers the whole pod, so RBAC lets serve read that Secret
-too. The separation rests on the binary: serve refuses a sudo artifact by name.
+Bootstrap uses its own ServiceAccount. The API ServiceAccount can get only
+its named signing Secret; it cannot get sudo or create/list/update Secrets.
+The binary also refuses sudo as a serving artifact.
 
-On a fresh install the api pod may restart a few times while its bootstrap
-initContainer waits for the store. Bootstrap replays safely, and serve starts
-only after it succeeds, verifying its prerequisites rather than writing
-anything.
+Each Helm install, upgrade or rollback creates a revision-named ordinary
+bootstrap Job. It retries a temporarily unavailable store with a six-retry
+budget and a ten-minute deadline. This is not a hook: PostgreSQL and the Job
+can start together without a pre-install missing-store or post-install Ready
+cycle. Use --wait --wait-for-jobs --timeout 15m; inspect the Job on failure.
+The API may restart until its prerequisites exist; serve verifies them and
+never performs genesis. Retained custody is reused, not re-minted.
+
+Helm 4 legacy RollingUpdate migrations use --server-side=false with upgrade.
+Read the packaged README before upgrading; retain store and custody on refusal.
+
+The API supports exactly one replica and uses Recreate. An update stops the
+old API before starting its replacement, so plan for a brief availability gap.
+This is update ordering, not fencing against forced Pod deletion or a lost
+node. Rolling back to an older chart also restores that chart's permissions
+and update strategy. The PostgreSQL and retained custody stay a matched pair.
 
 Seed the first administrator with the cli, which reads sudo from stdin:
 
