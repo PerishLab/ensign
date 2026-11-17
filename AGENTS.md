@@ -15,10 +15,10 @@ keel's `AGENTS.md` and source; this repo obeys them from the outside.
 
 - `crates/api` — the server; the keel caller (package `api`, bin
   `ensign-api`).
-- `crates/lib` — the public `ensign` client library; the anchor crate owning
-  configuration, retained login custody, identity and audience token exchange.
-- `crates/cli` — package `ensign-cli`, binary `ensign`; uses the public client.
-  The `ENSIGN_` configuration prefix and existing credential format remain.
+- `crates/lib` — public package `ensign-client`; pure client protocol and retained
+  login custody with caller-selected data home. No Plumb, Locus or Keel dependency.
+- `crates/cli` — package and binary `ensign`; the product anchor owns ENSIGN_
+  configuration and passes explicit values to the client. Login format stays schema1.
 - `charts/ensign` — the helm delivery; it declares version `0.0.0` and wharf
   stamps the release marker onto it. Its ConfigMap supplies `ensign.toml`.
 - `Containerfile` — the server image. Its build context is only this file and

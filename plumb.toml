@@ -53,7 +53,7 @@ skill = true
 
 [release.cargo]
 registry = "perish"
-packages = ["ensign"]
+packages = ["ensign-client"]
 
 [release.binary.ensign-api]
 targets = ["x86_64-unknown-linux-gnu"]

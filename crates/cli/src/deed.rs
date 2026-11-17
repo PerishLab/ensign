@@ -40,7 +40,8 @@ impl Rest<'_> {
     pub(crate) fn login(&self) -> Reply {
         let who = self.0.first().ok_or("login takes a login name")?;
         let pass = ask("password")?;
-        let client = ensign::Client::login(who, pass.trim())?;
+        let client =
+            ensign_client::Client::login(&crate::config::home()?, &base()?, who, pass.trim())?;
         let base = client.base();
         println!("signed in to {base} as {who}");
         Ok(())

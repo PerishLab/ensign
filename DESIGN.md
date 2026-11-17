@@ -90,20 +90,22 @@ codes. Routine refusals stay self-contained.
 
 ## Public client
 
-The public Cargo package `ensign` owns client configuration and retained login
-custody. The executable package is `ensign-cli`; its binary remains `ensign`.
-Configuration keeps the `ENSIGN_` prefix and the schema-1 credential location.
-Consumers reuse a held login through the public client instead of reading its
-private credential document. The public client never exports that login bearer.
+The public Cargo package `ensign-client` owns client protocol and retained login
+custody. Its caller explicitly supplies the data home, endpoint and login input;
+it reads no ambient environment and carries no Plumb, Locus, server or Keel edge.
+The package and executable `ensign` keep the product's existing ENSIGN_ cascade
+and schema-1 credential location. CLI configuration remains in the anchor crate.
+Consumers use the public client instead of reading or exporting its login bearer.
 
 Identity reconciliation exposes existing Actor.sub, independently of local row
 IDs and display names. Discovery is an observed document, not a trust decision.
-A caller qualifies the canonical issuer and external subject, selects a registered
-resource audience and requests a short-lived access token through RFC8693.
-Radicula owns the shared JWT, PKCE and exchange protocol. Ensign owns issuer
-keys, live identity checks, audience registration and login custody. A token
-response does not establish a supplier role or any resource permission.
+Callers qualify canonical issuer and subject, select a registered audience and
+request a short-lived access token through RFC8693. Radicula owns shared JWT,
+PKCE and exchange protocol. Ensign owns signing keys, live identity checks,
+audience registration and login custody; responses establish no supplier role.
 
-Supplier provider objects, roles, trust policies and permission attachments
-remain supplier resources owned by the resource product. They introduce no
-Ensign Actor kind, role table, cloud-account row or Keel/gate semantics.
+Supplier provider objects, roles, trust policies and permission attachments stay
+with the resource product. No Ensign Actor kind, role table, cloud-account row
+or Keel/gate semantics are introduced. Explicit SDK context lets Runseal's native
+profile execution consume this pure client without a framework dependency,
+process-global configuration or a new execution callback.

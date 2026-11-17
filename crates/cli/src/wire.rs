@@ -59,8 +59,8 @@ pub(crate) fn base() -> Result<String, String> {
     config::base()
 }
 
-pub(crate) fn seat() -> Result<ensign::Client, String> {
-    ensign::Client::retained()
+pub(crate) fn seat() -> Result<ensign_client::Client, String> {
+    ensign_client::Client::open(&config::home()?)
 }
 
 pub(crate) fn ask(label: &str) -> Result<String, String> {
