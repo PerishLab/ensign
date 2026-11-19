@@ -3,6 +3,23 @@
 	"version": "0.0.0",
 	"private": true,
 	"scripts": {
-		"test": "node --test tests/*.test.mjs"
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview",
+		"test": "node --test tests/*.test.mjs",
+		"typecheck": "svelte-check --tsconfig ./tsconfig.json"
+	},
+	"type": "module",
+	"dependencies": {
+		"@perishlab/design": "0",
+		"svelte": "catalog:"
+	},
+	"devDependencies": {
+		"@sveltejs/vite-plugin-svelte": "catalog:",
+		"@types/node": "catalog:",
+		"sass": "catalog:",
+		"svelte-check": "catalog:",
+		"typescript": "catalog:",
+		"vite": "catalog:"
 	}
 }

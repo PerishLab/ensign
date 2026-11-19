@@ -8,6 +8,9 @@
 	"files": {
 		"includes": ["**", "!.runseal", "!charts"]
 	},
+	"html": {
+		"experimentalFullSupportEnabled": true
+	},
 	"formatter": {
 		"enabled": true
 	},

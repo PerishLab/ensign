@@ -38,10 +38,16 @@ keel's `AGENTS.md` and source; this repo obeys them from the outside.
   ensign-api`, copy `target/release/ensign-api` to the repository root
   (ignored), then `--profile stack up --build`. A `bootstrap` service runs
   first and keeps sudo in a volume the `api` service never mounts.
-- `apps/web` — the same-origin browser sign-in and sign-out assets, embedded
-  in `ensign-api` at compile time. The API serves `/login`, `/logout`, and
-  `/assets/*`; `/` redirects to `/login`. No Node server or second image is
-  required. Node's built-in runner exercises browser logic through `pnpm test`.
+- `apps/web` — the browser sign-in and sign-out surface. Its source is an
+  independent Svelte application: `src/views/*` are route files, Design owns the
+  components, and `virtual:perish/views` assembles the route catalog. It builds
+  to `dist/`, whose `dist/.perish/server.mjs` is a complete static server, so
+  `deploy/web.Dockerfile` is the web image seat. The candidate is not yet the
+  released topology: the API binary still embeds `legacy.html` and serves
+  `/login`, `/logout`, and `/assets/*`, and the chart's `web.enabled` is false.
+  Both `/api` routing and retiring the embedded pages belong to the remaining
+  Ensign#114 delivery work. Node's built-in runner exercises browser logic
+  through `pnpm test`.
 - `DESIGN.md` — current identity-resource and ceremony doctrine.
 
 Plumb's pre-commit guard proves every commit against its exact staged tree,
@@ -174,7 +180,9 @@ The CLI receives the explicit API root, including `/api`, through `ENSIGN_URL`.
 - Generate a credential once per secret and reuse it. `helm lint` and
   `helm template` are both silent about a second `randAlphaNum` call.
 - Every retained artifact carries `helm.sh/resource-policy: keep`, so deleting
-  one is a deliberate human act. The chart needs no separate web process; the API binary carries the browser surface.
+  one is a deliberate human act. The released chart still needs no separate web
+  process: the API binary carries the browser surface. The independent web
+  workload exists behind `web.enabled` and is not a default.
 - `crates/api/tests/bootstrap.rs` mechanizes `serve` refusing a `sudo`
   artifact and the replay table. Run the suite instead of restating its
   verdicts.

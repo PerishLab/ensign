@@ -22,7 +22,6 @@ paths = [
     "apps/*/tests/**/*.test.mjs",
     "apps/*/tests/**/*.test.mts",
     "apps/*/tests/**/*.test.ts",
-    "apps/*/tests/**/*.test.tsx",
     "crates/*/src/**/*.rs",
     "crates/*/tests/**/*.rs",
 ]
@@ -64,6 +63,7 @@ roots = [
 
 [scan]
 exclude = [
+    "**/.svelte-kit/**",
     "**/dist/**",
     "**/node_modules/**",
     "**/target/**",
@@ -77,8 +77,8 @@ include = [
     "apps/**/*.mjs",
     "apps/**/*.mts",
     "apps/**/*.scss",
+    "apps/**/*.svelte",
     "apps/**/*.ts",
-    "apps/**/*.tsx",
     "crates/**/*.rs",
 ]
 

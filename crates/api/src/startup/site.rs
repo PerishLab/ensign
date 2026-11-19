@@ -3,8 +3,9 @@ use axum::http::header;
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::get;
 
-const PAGE: &str = include_str!("../../../../apps/web/index.html");
+const PAGE: &str = include_str!("../../../../apps/web/legacy.html");
 const SCRIPT: &str = include_str!("../../../../apps/web/client.mjs");
+const PROTOCOL: &str = include_str!("../../../../apps/web/protocol.mjs");
 const STYLE: &str = include_str!("../../../../apps/web/style.css");
 
 pub(crate) fn plate() -> Router {
@@ -21,6 +22,10 @@ pub(crate) fn plate() -> Router {
         .route(
             "/assets/client.mjs",
             get(|| async { reply(SCRIPT, "text/javascript; charset=utf-8") }),
+        )
+        .route(
+            "/assets/protocol.mjs",
+            get(|| async { reply(PROTOCOL, "text/javascript; charset=utf-8") }),
         )
         .route(
             "/assets/style.css",
