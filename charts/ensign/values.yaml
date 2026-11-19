@@ -15,6 +15,18 @@ api:
 # 0.0.0.0 here, so it would advertise an unreachable issuer. https also turns on the
 # Secure flag on session cookies.
 issuer: ""
+web:
+  # The independent browser surface (Ensign#114). Disabled by default: the
+  # released chart still routes the whole issuer host to the API binary, which
+  # carries the embedded sign-in and sign-out pages. Set web.enabled to place
+  # the separate web workload and split /api from / in the Ingress. The image
+  # must exist before enabling; a released web image is not claimed here.
+  enabled: false
+  image: ghcr.io/perishlab/ensign-web
+  tag: ""
+  pullPolicy: IfNotPresent
+  replicas: 1
+  port: 8080
 ingress:
   enabled: true
   className: ""

@@ -44,6 +44,7 @@ fn assets() {
     let (stage, wire) = open();
     for (path, kind) in [
         ("/assets/client.mjs", "text/javascript; charset=utf-8"),
+        ("/assets/protocol.mjs", "text/javascript; charset=utf-8"),
         ("/assets/style.css", "text/css; charset=utf-8"),
     ] {
         let held = wire.fetch(&format!("{}{path}", stage.origin), &bare());
