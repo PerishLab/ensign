@@ -1,6 +1,5 @@
 <script lang="ts">
-import { Shell } from "@perishlab/design";
-import Identity from "../lib/components/identity.svelte";
+import Account from "../lib/components/account.svelte";
 </script>
 
-<Shell system="google-accounts"><Identity /></Shell>
+<Account />
