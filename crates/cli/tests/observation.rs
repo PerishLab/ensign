@@ -119,3 +119,25 @@ fn isolated() {
     assert_eq!(result.status.code(), Some(0));
     assert!(!result.stderr.is_empty());
 }
+
+#[test]
+fn https() {
+    let fixture = Fixture::new();
+    let home = fixture.home();
+    let key = home.join("writer");
+    std::fs::write(&key, "fixture\n").unwrap();
+    fixture.configure(&format!(
+        "[locus]\nenabled=true\nendpoint='https://127.0.0.1:0'\nkey_file={}\n",
+        serde_json::to_string(&key).unwrap()
+    ));
+    let observed = fixture.run(&["whoami"]);
+    assert!(observed.status.success());
+    assert!(observed.stderr.is_empty());
+    let queue = home.join("state/locus.https/ensign");
+    let binding: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(queue.join("delivery.json")).unwrap()).unwrap();
+    assert_eq!(binding["producer"], "ensign");
+    assert_eq!(binding["format"], "sqlite-wal/v1");
+    assert!(queue.join("queue.db").is_file());
+    assert!(!home.join("state/locus").exists());
+}
