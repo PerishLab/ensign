@@ -186,6 +186,6 @@ fn usage() {
         "Observation is off by default. Set [locus] enabled = true in config.toml under ENSIGN_HOME or the platform ensign data home (~/.ensign on Unix, LOCALAPPDATA/ensign on Windows)."
     );
     eprintln!(
-        "endpoint overrides LOCUS_API, then http://127.0.0.1:43308; buffer is state/locus. Configuration is separate from state/pat.json and observation failures preserve client state and exit status."
+        "For HTTPS set endpoint and the absolute writer key_file together. On Unix, sender may name a trusted absolute locus executable. Retry state/locus.https/ensign with locus deliver --buffer. Legacy HTTP defaults to http://127.0.0.1:43308 and uses state/locus. Configuration is separate from state/pat.json and observation failures preserve client state and exit status."
     );
 }
