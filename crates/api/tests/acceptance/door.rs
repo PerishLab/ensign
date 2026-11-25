@@ -90,7 +90,8 @@ fn logout() {
     let (stage, wire) = open();
     let face = wire.enrol(&stage.crown(), "ada");
     let page = wire.fetch(&format!("{}/logout", stage.origin), &face.head);
-    assert_eq!(page.status, 200, "logout page");
+    assert_eq!(page.status, 404, "retired logout page");
+    assert_eq!(wire.get("/logout", &face.head).status, 405, "GET logout");
     assert_eq!(
         wire.get("/whoami", &face.head).status,
         200,

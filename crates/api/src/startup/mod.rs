@@ -1,6 +1,5 @@
 mod berth;
 mod key;
-mod site;
 
 pub use berth::Berth;
 
@@ -198,9 +197,7 @@ pub fn router<W: Wire + 'static>(booth: Booth<W>, iss: String, keys: Keys, prefi
         .merge(booth.plate())
         .merge(flags)
         .layer(from_fn(voice));
-    Router::new()
-        .nest(PREFIX, gate.screen(base))
-        .merge(site::plate())
+    Router::new().nest(PREFIX, gate.screen(base))
 }
 
 fn halt(seat: &str, note: &str) -> ! {

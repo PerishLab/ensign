@@ -6,10 +6,6 @@ syntax = "style"
 allow = false
 
 [[grant]]
-paths = ["crates/api/src/startup/site.rs"]
-syntax = "embed"
-
-[[grant]]
 paths = ["crates/cli/src/cookbook.rs"]
 syntax = "embed"
 

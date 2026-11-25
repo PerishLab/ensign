@@ -42,12 +42,11 @@ keel's `AGENTS.md` and source; this repo obeys them from the outside.
   independent Svelte application: `src/views/*` are route files, Design owns the
   components, and `virtual:perish/views` assembles the route catalog. It builds
   to `dist/`, whose `dist/.perish/server.mjs` is a complete static server, so
-  `deploy/web.Dockerfile` is the web image seat. The candidate is not yet the
-  released topology: the API binary still embeds `legacy.html` and serves
-  `/login`, `/logout`, and `/assets/*`, and the chart's `web.enabled` is false.
-  Both `/api` routing and retiring the embedded pages belong to the remaining
-  Ensign#114 delivery work. Node's built-in runner exercises browser logic
-  through `pnpm test`.
+  `deploy/web.Dockerfile` is the web image seat (`ghcr.io/perishlab/ensign-web`).
+  This dual-OCI topology (`api` + `web`) is the released default: `charts/ensign`
+  enables `web.enabled: true` and splits `/api` to `ensign-api` and `/` to
+  `ensign-web`, while the embedded `legacy.html` surface is retired from the
+  API binary. Node's built-in runner exercises browser logic through `pnpm test`.
 - `DESIGN.md` — current identity-resource and ceremony doctrine.
 
 Plumb's pre-commit guard proves every commit against its exact staged tree,
@@ -142,10 +141,11 @@ which consumers mount read-only.
   CLI, installed on every target, and the `ensign-api` server, linux only and
   never installed. The server is placed in the image
   `ghcr.io/perishlab/ensign:<version>` built from the root `Containerfile`,
-  and the chart is published as `oci://ghcr.io/perishlab/charts/ensign`, both
-  under the same marker as the CLI. Releases follow Plumb's
-  lifecycle (`plumb release --help`); wharf binds both executables and
-  publishes the archives, the image and the chart. Both
+  the web surface in `ghcr.io/perishlab/ensign-web:<version>` built from
+  `deploy/web.Dockerfile`, and the chart is published as
+  `oci://ghcr.io/perishlab/charts/ensign`, all under the same marker as the
+  CLI. Releases follow Plumb's lifecycle (`plumb release --help`); wharf binds
+  both executables and publishes the archives, both images and the chart. Both
   executables call `plumb::identity!("ENSIGN")` and print `<binary> <marker>`
   from `--version`; an unbound `ensign-api` answers `--version` and refuses
   every other operation. Each stable owes its changelog and its skill,
@@ -180,9 +180,9 @@ The CLI receives the explicit API root, including `/api`, through `ENSIGN_URL`.
 - Generate a credential once per secret and reuse it. `helm lint` and
   `helm template` are both silent about a second `randAlphaNum` call.
 - Every retained artifact carries `helm.sh/resource-policy: keep`, so deleting
-  one is a deliberate human act. The released chart still needs no separate web
-  process: the API binary carries the browser surface. The independent web
-  workload exists behind `web.enabled` and is not a default.
+  one is a deliberate human act. The released chart runs the dual-OCI `api` +
+  `web` topology with `web.enabled: true` by default; the API binary carries no
+  embedded browser pages.
 - `crates/api/tests/bootstrap.rs` mechanizes `serve` refusing a `sudo`
   artifact and the replay table. Run the suite instead of restating its
   verdicts.
