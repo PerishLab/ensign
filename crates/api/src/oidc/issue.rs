@@ -24,6 +24,9 @@ impl<W: Wire + 'static> Oidc<W> {
         if radicula_oidc::pkce::verify(&verifier, &code.challenge).is_err() {
             return Err(sour("invalid_grant"));
         }
+        if !self.allowed(&code.bearing).await.map_err(|_| spoil())? {
+            return Err(sour("invalid_grant"));
+        }
         self.grip(&code.bearing, code.nonce).await
     }
 
@@ -37,12 +40,7 @@ impl<W: Wire + 'static> Oidc<W> {
         if grant.client.as_deref() != Some(&ward.bearing.client) {
             return Err(sour("invalid_grant"));
         }
-        let lives = self.alive(ward.bearing.actor).await.map_err(|_| spoil())?;
-        let known = self
-            .client(&ward.bearing.client)
-            .await
-            .map_err(|_| spoil())?;
-        if !lives || known.is_none() {
+        if !self.allowed(&ward.bearing).await.map_err(|_| spoil())? {
             return Err(sour("invalid_grant"));
         }
         self.core
@@ -51,6 +49,20 @@ impl<W: Wire + 'static> Oidc<W> {
             .await
             .map_err(|_| spoil())?;
         self.grip(&ward.bearing, None).await
+    }
+
+    async fn allowed(&self, bearing: &Bearing) -> Result<bool, keel::adapt::Error> {
+        if !self.alive(bearing.actor).await? {
+            return Ok(false);
+        }
+        let known = self.client(&bearing.client).await?;
+        if known.is_none_or(|row| row.flag("barred") != Some(false)) {
+            return Ok(false);
+        }
+        if bearing.audience == self.iss {
+            return Ok(true);
+        }
+        Ok(self.heard(&bearing.audience).await?.is_some())
     }
 
     async fn grip(&self, bearing: &Bearing, nonce: Option<String>) -> Grip {

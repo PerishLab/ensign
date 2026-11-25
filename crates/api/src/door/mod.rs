@@ -1,10 +1,17 @@
+mod account;
+mod actor;
 mod face;
+mod invite;
+mod manage;
 mod plate;
+mod rescue;
+mod session;
+mod team;
 
 use face::{known, shown};
 
 use crate::booth::{Booth, PASS};
-use crate::util::{Sound, lift, lock, pct, text};
+use crate::util::{Sound, clear, lift, lock, pct, text};
 use axum::http::{HeaderMap, StatusCode};
 use axum::{Extension, Json};
 use keel::serve::admit;
@@ -121,16 +128,7 @@ impl<W: Wire + 'static> Booth<W> {
     ) -> Result<(StatusCode, HeaderMap), StatusCode> {
         let sid = crumb(&headers).ok_or(StatusCode::BAD_REQUEST)?;
         self.gate.logout(&sid).await.map_err(|deny| deny.status())?;
-        let mut headers = HeaderMap::new();
-        let secure = if self.secure { "; Secure" } else { "" };
-        let cookie = format!("session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0{secure}");
-        headers.insert(
-            axum::http::header::SET_COOKIE,
-            cookie
-                .parse()
-                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
-        );
-        Ok((StatusCode::NO_CONTENT, headers))
+        Ok((StatusCode::NO_CONTENT, clear(self.secure)?))
     }
 
     pub(crate) async fn who(
@@ -181,33 +179,6 @@ impl<W: Wire + 'static> Booth<W> {
         headers.insert("x-ensign-login", stamp(&login)?);
         headers.insert("x-ensign-teams", stamp(&teams)?);
         Ok((StatusCode::OK, headers))
-    }
-
-    pub(crate) async fn mint(
-        &self,
-        op: Option<Extension<Operator>>,
-    ) -> Result<(StatusCode, Json<Value>), StatusCode> {
-        let Some(Extension(Operator(me))) = op else {
-            return Err(StatusCode::UNAUTHORIZED);
-        };
-        let face = self.core.of(me);
-        let ask = form("Rescue").when("actor", Op::Eq, &me.to_string());
-        let pack = face.ask(&ask).await.sound()?;
-        for row in pack.rows() {
-            face.end("Rescue", row.key()).await.sound()?;
-        }
-        let mut codes = Vec::new();
-        for _ in 0..3 {
-            let code = wild();
-            face.put(
-                "Rescue",
-                &[("hash", &digest(&code)), ("actor", &me.to_string())],
-            )
-            .await
-            .sound()?;
-            codes.push(code);
-        }
-        Ok((StatusCode::CREATED, Json(json!({ "codes": codes }))))
     }
 
     pub(crate) async fn repass(

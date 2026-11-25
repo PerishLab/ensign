@@ -10,6 +10,7 @@ pub(crate) use bear::{Bearing, Code, Ward};
 
 pub(crate) use keys::keys;
 pub use keys::{Keys, provision};
+pub(crate) use plain::{origin, safe};
 
 use crate::booth::Booth;
 use crate::util::{Sound, pct};
@@ -19,7 +20,7 @@ use axum::response::{IntoResponse, Redirect, Response};
 use keel::life::tick;
 use keel::{Core, Op, Wire, form};
 use keel_gate::{Gate, wild};
-use plain::{safe, seal};
+use plain::seal;
 use radicula_oidc::jwt::{Algorithm, Rules, Verifier};
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -74,7 +75,10 @@ impl<W: Wire + 'static> Oidc<W> {
             Ok(None) => return StatusCode::BAD_REQUEST.into_response(),
             Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
         };
-        if app.text("redirect") != Some(&ask.redirect) || app.text("mode") != Some("oidc") {
+        if app.text("redirect") != Some(&ask.redirect)
+            || app.text("mode") != Some("oidc")
+            || app.flag("barred") != Some(false)
+        {
             return StatusCode::BAD_REQUEST.into_response();
         }
         if !safe(&ask.redirect) {
@@ -114,7 +118,7 @@ impl<W: Wire + 'static> Oidc<W> {
         let ask = form("Actor").when("id", Op::Eq, &actor.to_string());
         let held = self.core.of(self.svc).one(&ask).await?;
         match held {
-            Some(row) => Ok(row.flag("barred") != Some(true)),
+            Some(row) => Ok(row.flag("barred") == Some(false)),
             None => Ok(false),
         }
     }
