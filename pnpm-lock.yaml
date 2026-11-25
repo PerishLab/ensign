@@ -44,6 +44,9 @@ importers:
       '@perishlab/design':
         specifier: '0'
         version: 0.8.0(sass@1.105.0)(svelte@5.57.1)
+      '@perishlab/radicula-document':
+        specifier: '0'
+        version: 0.21.0
       svelte:
         specifier: 'catalog:'
         version: 5.57.1
@@ -256,6 +259,9 @@ packages:
     peerDependencies:
       sass: '>=1.101'
       svelte: '>=5.56'
+
+  '@perishlab/radicula-document@0.21.0':
+    resolution: {integrity: sha512-rLDKgTNqfyrZTqpsVNRobmayGu5IItonQNnZqiy4oFSZnWxuUY3o82lfkYhjGsS3AmBhjbFK6jM6/WbYt0oARA==, tarball: https://npm.pkg.github.com/download/@perishlab/radicula-document/0.21.0/536b0e5babcd3d6bef66c314661b4b152d62ac71}
 
   '@perishlab/sidecar@0.12.0':
     resolution: {integrity: sha512-5C9jLJa8BdfVIsG0s8jauDx9l6EYJDC+2pTf/jtctk7utZQf9fJgIdqI/77y5JU/tDgeM9+N41Sil/B0gWIZ0Q==, tarball: https://npm.pkg.github.com/download/@perishlab/sidecar/0.12.0/5d3868fea17c086a67048489ecb02bb28f27a251}
@@ -842,6 +848,8 @@ snapshots:
       '@perishlab/token': 0.8.0(sass@1.105.0)
       sass: 1.105.0
       svelte: 5.57.1
+
+  '@perishlab/radicula-document@0.21.0': {}
 
   '@perishlab/sidecar@0.12.0': {}
 
