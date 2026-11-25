@@ -1,9 +1,10 @@
 # Ensign Helm lifecycle
 
 Resolve the formal product release through Plumb and Wharf before selecting its
-chart and image. The chart consumes one API instance and a durable PostgreSQL
-store. Set a stable issuer explicitly; a local validation issuer does not
-establish public TLS or browser authentication.
+chart and images. The chart consumes one API instance, one Web instance (when
+`web.enabled` is true), and a durable PostgreSQL store. Set a stable issuer
+explicitly; a local validation issuer does not establish public TLS or browser
+authentication.
 
 ## Install
 
@@ -56,17 +57,16 @@ update policy. Recovery and formal rollout acceptance remain separate operations
 
 ## Web surface
 
-The default chart routes the whole issuer host to the API service: `/api`
-carries JSON and OIDC endpoints, while `/login`, `/logout`, and `/assets/*` are
-the browser surface embedded in that same binary. Use a dedicated issuer host so
-this root route does not take over another application's paths. No separate web
-image or Node process is needed by default. Browser session logout is distinct
-from CLI bearer logout; the page revokes the session and clears its cookie.
+Ensign ships as a dual-OCI release (`ghcr.io/perishlab/ensign` for `ensign-api`
+and `ghcr.io/perishlab/ensign-web` for the independent Svelte Web surface). The
+chart enables `web.enabled: true` by default, deploying a separate `*-web`
+Deployment and Service serving the built `dist/.perish/server.mjs` and splitting
+the Ingress so `/api` reaches the API service (JSON and OIDC endpoints) while
+`/` reaches the web service (`/login`, `/logout`, `/settings`, `/callback`).
 
-`web.enabled` selects the candidate independent web workload declared by
-Ensign#114: a separate `*-web` Deployment and Service serving the built
-`dist/.perish/server.mjs`, with the Ingress split so `/api` still reaches the API
-service and `/` reaches the web service. The candidate image is not part of a
-released chart, so enabling it requires an image that exists
-(`web.image`/`web.tag`); the released default stays API-only. The embedded pages
-remain until that cutover lands.
+Use a dedicated issuer host so this root route does not take over another
+application's paths. Browser session logout is distinct from CLI bearer logout;
+the page revokes the session and clears its cookie. The embedded HTML/JS/CSS
+pages have been retired from the API binary; if you disable `web.enabled`, the
+API binary serves only `/api` and does not serve browser pages, so the operator
+must provide the Web surface separately.

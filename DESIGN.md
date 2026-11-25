@@ -50,14 +50,16 @@ through the password floor and OIDC code + PKCE.
 
 ## Browser
 
-The API binary carries the same-origin browser surface from tracked HTML, CSS,
-and JavaScript. `/login` uses the existing password/session ceremony and returns
-only to a validated local destination; the default signed-in view stays put.
-`/logout` requires an explicit action, revokes the existing session and expires
-its HttpOnly cookie. Passwords are submitted in JSON request bodies and are not
-retained by the browser code. The API and CLI recovery floor remains independent
-of page availability. No separate web process or runtime asset acquisition is
-introduced. These plain identity forms make no Crest/Design brand qualification.
+An independent Design-based Svelte workload (`ensign-web`, built from `apps/web`
+and served by `dist/.perish/server.mjs`) carries the browser surface alongside
+the API-only `ensign-api` binary. Deployment ingress splits the same origin so
+`/api` reaches `ensign-api` and `/` reaches `ensign-web`, retiring the legacy
+embedded HTML, CSS, and JavaScript from `ensign-api`. `/login` uses the existing
+password/session ceremony and returns only to a validated local destination; the
+default signed-in view stays put. `/logout` requires an explicit action, revokes
+the existing session and expires its HttpOnly cookie. Passwords are submitted in
+same-origin JSON request bodies and are not retained by the browser code. The
+API and CLI recovery floor remains independent of Web surface availability.
 
 ## Possessions
 

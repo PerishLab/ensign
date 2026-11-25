@@ -8,7 +8,7 @@ note = "The public Ensign client, CLI and API server."
 [[layout.seat]]
 path = "apps/*"
 anchor = []
-note = "Browser identity assets embedded in the API binary and their self-contained tests."
+note = "Independent Web application and its tests."
 
 [[layout.seat]]
 path = "deploy"
@@ -61,9 +61,16 @@ install = false
 
 [release.oci]
 registry = "ghcr.io"
-image = "perishlab/ensign"
 account = "PerishLab"
+
+[release.oci.components.api]
+image = "perishlab/ensign"
 binary = "ensign-api"
+
+[release.oci.components.web]
+image = "perishlab/ensign-web"
+web = "apps/web"
+file = "deploy/web.Dockerfile"
 
 [release.chart]
 registry = "ghcr.io"

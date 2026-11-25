@@ -1,4 +1,4 @@
-# Ensign Web candidate
+# Ensign Web
 
 The independent Svelte application consumes Design through its public component
 and Vite entries. Ensign owns identity requests, state, copy and navigation;
@@ -15,17 +15,20 @@ in `src/lib/components`.
 accepts an explicit `API_URL` through Design's normal proxy configuration;
 the built server expects the ingress to route `/api` to the identity API.
 
-The first surface covers sign-in, signed-in identity and explicit sign-out.
+The sign-in surface covers sign-in, signed-in identity and explicit sign-out.
 It retains native username/current-password autofill, safe local returns,
 password clearing, bounded requests, retry and session-revocation semantics.
 
-This is the candidate stage of Ensign#114. During preparation, `legacy.html`
-keeps the API-carried surface usable. Its client and the new application share
-`protocol.mjs`; the API also serves that module. The final chart/routing cutover
-will retire this embedded surface. Candidate package overrides belong to the
-Issue Artifact, not to the formal dependency declaration or release claim.
+Ensign delivers the Web surface formally through dual-OCI images
+(`ghcr.io/perishlab/ensign` for `ensign-api` and `ghcr.io/perishlab/ensign-web`
+for `apps/web` via `deploy/web.Dockerfile`) and the default-enabled Web workload
+in `charts/ensign` (`web.enabled: true`), with the Ingress splitting `/api` to
+`ensign-api` and `/` to `ensign-web`. The legacy embedded browser surface
+(`legacy.html`, `client.mjs`, `style.css`, and the API `site` module) is retired;
+`protocol.mjs` remains as the shared client protocol module with unit coverage in
+`tests/protocol.test.mjs`.
 
-## Settings candidate
+## Settings
 
 Ensign#115 uses the public Design Preference in compact and aggregate views.
 The browser reads Folio app/shared snapshots and sends revisioned intents;
@@ -52,5 +55,4 @@ logout clears browser custody after confirmed session revocation.
 
 The protocol tests use Node24's native experimental Web Storage implementation.
 Real authentication, persistence, failure and browser evidence belong to the
-Issue Artifacts. The final multi-image/chart cutover remains Ensign#114 work;
-this source candidate does not claim an already released web topology.
+Issue Artifacts.

@@ -1,6 +1,2 @@
 *
-!package.json
-!pnpm-lock.yaml
-!pnpm-workspace.yaml
-!.npmrc
-!apps/web
+!dist

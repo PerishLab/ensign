@@ -52,13 +52,16 @@ Seed the first administrator with the cli, which reads sudo from stdin:
 Sudo is the one pre-identity axiom. Use it to open the first invite and to
 crown the first administrator, then leave it dormant for lockout recovery.
 
-The API binary also serves the browser sign-in and sign-out pages. Route the
-issuer hostname at / so /login, /logout and /assets are available beside /api.
+{{ if .Values.web.enabled -}}
+This release deploys the dual-OCI topology: {{ .Release.Name }}-api serves
+JSON and OIDC endpoints under /api, and {{ .Release.Name }}-web serves the
+independent browser surface (/login, /logout, /settings, /callback) under /.
 Use /login to sign in; the API root below remains the CLI and OIDC issuer.
-{{- if .Values.web.enabled }}
-This release enabled the separate web workload: /api goes to the API service and
-/ goes to the web service. The embedded pages in the API binary are still
-present but unused on this host.
+{{- else -}}
+This release disabled the web workload (web.enabled=false). The API binary does
+not serve browser pages; supply the independent web surface separately and route
+/api to {{ .Release.Name }}-api. The API root below remains the CLI and OIDC
+issuer.
 {{- end }}
 
   {{ if .Values.ingress.enabled }}{{ $ann := .Values.ingress.annotations | default dict }}{{ if or .Values.ingress.tls (eq (get $ann "traefik.ingress.kubernetes.io/router.tls") "true") }}https{{ else }}http{{ end }}://{{ .Values.ingress.host }}/api{{ else }}(ingress disabled — port-forward svc/{{ .Release.Name }}-api:{{ .Values.api.port }}){{ end }}
