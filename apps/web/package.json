@@ -12,6 +12,7 @@
 	"type": "module",
 	"dependencies": {
 		"@perishlab/design": "0",
+		"@perishlab/radicula-document": "0",
 		"svelte": "catalog:"
 	},
 	"devDependencies": {
