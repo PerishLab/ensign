@@ -2,6 +2,7 @@ mod berth;
 mod key;
 
 pub use berth::Berth;
+pub(crate) use berth::SERVICE;
 
 use crate::artifact::{self, Artifact};
 use crate::config::{self, Hold, Kind, Runtime};

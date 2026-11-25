@@ -78,6 +78,8 @@ pub(crate) struct App {
     secret: string,
     #[field(string)]
     mode: string,
+    #[field(bool, default = false)]
+    barred: bool,
 }
 
 #[resource(veil)]

@@ -16,7 +16,7 @@ impl<W: Wire + 'static> Oidc<W> {
         let ask = form("App").when("slug", Op::Eq, want);
         let held = self.core.of(self.svc).one(&ask).await?;
         Ok(held
-            .filter(|row| row.text("mode") == Some("resource"))
+            .filter(|row| row.text("mode") == Some("resource") && row.flag("barred") == Some(false))
             .map(|_| want.to_string()))
     }
 

@@ -1,13 +1,31 @@
 use axum::Json;
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::{HeaderMap, StatusCode, Uri};
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as B64;
 use serde_json::{Value, json};
 
+pub(crate) fn origin(text: &str) -> bool {
+    if text.contains('#') || text.chars().any(|ch| ch.is_control() || ch.is_whitespace()) {
+        return false;
+    }
+    let Ok(uri) = text.parse::<Uri>() else {
+        return false;
+    };
+    let Some(auth) = uri.authority() else {
+        return false;
+    };
+    if auth.as_str().contains('@') || auth.host().is_empty() {
+        return false;
+    }
+    match uri.scheme_str() {
+        Some("https") => true,
+        Some("http") => matches!(auth.host(), "localhost" | "127.0.0.1"),
+        _ => false,
+    }
+}
+
 pub(crate) fn safe(redirect: &str) -> bool {
-    redirect.starts_with("https://")
-        || redirect.starts_with("http://127.0.0.1")
-        || redirect.starts_with("http://localhost")
+    origin(redirect) && !redirect.contains('?')
 }
 
 pub(crate) fn bearer(headers: &HeaderMap) -> Option<String> {

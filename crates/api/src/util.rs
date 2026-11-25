@@ -3,10 +3,11 @@ use argon2::password_hash::rand_core::OsRng;
 use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
 use axum::Json;
 use axum::extract::Request;
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use keel::adapt::{Error, Store};
+use serde::de::DeserializeOwned;
 use serde_json::{Map, Value, json};
 use std::cell::RefCell;
 
@@ -85,4 +86,58 @@ pub(crate) fn fits(pass: &str, hash: &str) -> bool {
     Argon2::default()
         .verify_password(pass.as_bytes(), &parsed)
         .is_ok()
+}
+
+const MISSING: [&str; 4] = [
+    "missing row",
+    "missing tie",
+    "left not live",
+    "right not live",
+];
+const CLASH: [&str; 3] = ["live pair exists", "live ties remain", "live ref exists"];
+
+pub(crate) fn fault(error: &Error) -> StatusCode {
+    if matches!(error, Error::Store(_)) {
+        return lift(error, StatusCode::INTERNAL_SERVER_ERROR);
+    }
+    let Error::Adapt(note) = error else {
+        return match error {
+            Error::Missing(_) => StatusCode::NOT_FOUND,
+            _ => StatusCode::BAD_REQUEST,
+        };
+    };
+    if note.starts_with("refused") {
+        return StatusCode::FORBIDDEN;
+    }
+    if MISSING.iter().any(|tag| note.starts_with(tag)) {
+        return StatusCode::NOT_FOUND;
+    }
+    if CLASH.iter().any(|tag| note.starts_with(tag)) || note.ends_with(" taken") {
+        return StatusCode::CONFLICT;
+    }
+    StatusCode::BAD_REQUEST
+}
+
+pub(crate) fn parse<T: DeserializeOwned>(value: Value) -> Result<T, StatusCode> {
+    serde_json::from_value(value).map_err(|_| StatusCode::BAD_REQUEST)
+}
+
+pub(crate) fn private() -> HeaderMap {
+    let mut headers = HeaderMap::new();
+    headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    headers.insert(header::PRAGMA, HeaderValue::from_static("no-cache"));
+    headers
+}
+
+pub(crate) fn clear(secure: bool) -> Result<HeaderMap, StatusCode> {
+    let mut headers = HeaderMap::new();
+    let flag = if secure { "; Secure" } else { "" };
+    let cookie = format!("session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0{flag}");
+    headers.insert(
+        header::SET_COOKIE,
+        cookie
+            .parse()
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
+    );
+    Ok(headers)
 }
