@@ -62,6 +62,10 @@ test("S256 binds the stored verifier and exact client, callback, audience and lo
 	assert.equal("access_token" in transaction, false);
 	await journey("/security");
 	await journey("/sessions");
+	await journey("/admin/actors");
+	await journey("/admin/invites");
+	await journey("/admin/teams");
+	await journey("/admin/apps");
 	await assert.rejects(journey("//foreign.example"), /返回地址/);
 });
 
