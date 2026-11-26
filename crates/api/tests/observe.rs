@@ -2,7 +2,7 @@
 mod gates;
 
 use api::config::Locus;
-use api::observe::{Relay, Spec, router};
+use api::observe::{Config, Relay, router};
 use api::{Artifact, Berth, Booth};
 use axum::Router;
 use axum::body::Body;
@@ -95,17 +95,13 @@ pub(crate) fn compress(raw: &[u8]) -> Vec<u8> {
     enc.finish().expect("finish")
 }
 
-pub(crate) fn spec(addr: SocketAddr, dir: &tempfile::TempDir) -> Spec {
-    Spec {
-        endpoint: format!("http://{addr}"),
-        key: "writer-secret".into(),
-        producer: "ensign-web".into(),
-        buffer: dir.path().join("relay"),
-        origins: Vec::new(),
-        rpm: 120,
-        burst: 30,
-        forwarded: false,
-    }
+pub(crate) fn spec(addr: SocketAddr, dir: &tempfile::TempDir) -> Config {
+    Config::new(
+        format!("http://{addr}"),
+        "writer-secret",
+        "ensign-web",
+        dir.path().join("relay"),
+    )
 }
 
 pub(crate) async fn send(

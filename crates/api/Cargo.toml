@@ -19,8 +19,7 @@ path = "src/entry/main.rs"
 radicula-config.workspace = true
 radicula-oidc.workspace = true
 locus.workspace = true
-flate2.workspace = true
-url.workspace = true
+locus-relay.workspace = true
 clap = { workspace = true }
 argon2 = { workspace = true }
 password-hash = { workspace = true }
@@ -39,5 +38,6 @@ tokio = { workspace = true }
 ureq = { workspace = true }
 
 [dev-dependencies]
+flate2.workspace = true
 tempfile.workspace = true
 tower.workspace = true
