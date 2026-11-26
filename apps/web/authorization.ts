@@ -65,7 +65,17 @@ function encode(bytes: Uint8Array): string {
 }
 
 function valid(path: string): boolean {
-	return ["/", "/login", "/settings", "/security", "/sessions"].includes(path);
+	return [
+		"/",
+		"/login",
+		"/settings",
+		"/security",
+		"/sessions",
+		"/admin/actors",
+		"/admin/invites",
+		"/admin/teams",
+		"/admin/apps",
+	].includes(path);
 }
 
 export async function start(config: Config, seat: Seat): Promise<string> {

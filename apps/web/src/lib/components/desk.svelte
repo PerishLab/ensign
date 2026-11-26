@@ -64,12 +64,22 @@ let links = $derived<Entry[]>([
 	{ label: "安全与恢复", href: "/security", sign: "owns", group: "个人中心", live: route === "/security" },
 	{ label: "会话与令牌", href: "/sessions", sign: "bounds", group: "个人中心", live: route === "/sessions" },
 	{ label: "偏好设置", href: "/settings", sign: "draws", group: "个人中心", live: route === "/settings" },
+	{ label: "账号与服务", href: "/admin/actors", sign: "owns", group: "管理控制台", live: route === "/admin/actors" },
+	{ label: "邀请管理", href: "/admin/invites", sign: "takes", group: "管理控制台", live: route === "/admin/invites" },
+	{ label: "团队与成员", href: "/admin/teams", sign: "places", group: "管理控制台", live: route === "/admin/teams" },
+	{ label: "应用登记", href: "/admin/apps", sign: "draws", group: "管理控制台", live: route === "/admin/apps" },
 	...extra,
 ]);
 let crumbs = $derived<Entry[]>(
 	route === "/"
 		? [{ label: "Ensign", href: "/" }, { label: "概览", href: "/", live: true }]
-		: [{ label: "Ensign", href: "/" }, { label: title, href: route, live: true }],
+		: route.startsWith("/admin/")
+			? [
+					{ label: "Ensign", href: "/" },
+					{ label: "管理控制台", href: "/admin/actors" },
+					{ label: title, href: route, live: true },
+				]
+			: [{ label: "Ensign", href: "/" }, { label: title, href: route, live: true }],
 );
 const choices = [
 	{ value: "/", label: "概览", sign: "places" },
