@@ -25,6 +25,10 @@ web:
   pullPolicy: IfNotPresent
   replicas: 1
   port: 8080
+  client:
+    issuer: ""
+    client: ""
+    folio: ""
 ingress:
   enabled: true
   className: ""
@@ -51,3 +55,15 @@ postgres:
   # preserves it across upgrades; a well-known default is not a credential.
   password: ""
   storage: 1Gi
+locus:
+  enabled: false
+  endpoint: ""
+  producer: "ensign-web"
+  origins: []
+  forwarded: true
+  rpm: 120
+  burst: 30
+  buffer: "/tmp/ensign-locus-relay"
+  keySecret:
+    name: ""
+    key: "value"

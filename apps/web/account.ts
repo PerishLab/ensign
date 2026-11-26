@@ -1,3 +1,5 @@
+import { track } from "./src/lib/observe.ts";
+
 export type Mood = "warn" | "hold";
 export type Actor = { id: number; sub: string; login: string; name: string };
 export type Rescue = { count: number; created: number | null };
@@ -140,7 +142,6 @@ export class Account {
 	constructor(fetcher: typeof fetch = fetch) {
 		this.fetcher = fetcher;
 	}
-
 	async call(path: string, spec: Spec): Promise<Response> {
 		const init: RequestInit = {
 			method: spec.method,
@@ -155,7 +156,9 @@ export class Account {
 		}
 		const fetcher = this.fetcher;
 		try {
-			return await fetcher(path, init);
+			return await track(path, spec.method, spec.kind, () =>
+				fetcher(path, init),
+			);
 		} catch {
 			throw new Fault(0, spec.kind);
 		}

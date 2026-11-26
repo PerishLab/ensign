@@ -1,3 +1,5 @@
+import { count, info, track, warn } from "./src/lib/observe.ts";
+
 export class Refusal extends Error {}
 
 export type Config = { issuer: string; client: string; folio?: string };
@@ -40,6 +42,7 @@ export function forget(): void {
 	access = undefined;
 	surface = undefined;
 	globalThis.sessionStorage?.removeItem(slot);
+	info("session.clear");
 }
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -199,6 +202,7 @@ export async function start(config: Config, seat: Seat): Promise<string> {
 		verifier,
 	};
 	seat.storage.setItem(slot, JSON.stringify(journey));
+	info("oidc.start");
 	const target = new URL("/api/authorize", seat.origin);
 	target.search = new URLSearchParams({
 		response_type: "code",
@@ -226,7 +230,11 @@ export async function complete(
 	const raw = seat.storage.getItem(slot);
 	seat.storage.removeItem(slot);
 	access = undefined;
-	if (!raw) throw new Refusal("身份确认已失效，请返回登录重试。");
+	if (!raw) {
+		warn("oidc.expired");
+		count("oidc", "expired", "/callback");
+		throw new Refusal("身份确认已失效，请返回登录重试。");
+	}
 	const journey: Journey = JSON.parse(raw);
 	const url = new URL(seat.url);
 	const query = url.searchParams;
@@ -236,31 +244,42 @@ export async function complete(
 		client: config.client,
 	};
 	for (const key of ["origin", "issuer", "client"] as const) {
-		if (journey[key] !== identity[key])
+		if (journey[key] !== identity[key]) {
+			warn("oidc.mismatch");
+			count("oidc", "mismatch", "/callback");
 			throw new Refusal("身份确认不匹配，请返回登录重试。");
+		}
 	}
-	if (url.pathname !== "/callback" || !valid(journey.back))
+	if (url.pathname !== "/callback" || !valid(journey.back)) {
+		warn("oidc.mismatch");
+		count("oidc", "mismatch", "/callback");
 		throw new Refusal("身份确认不匹配，请返回登录重试。");
+	}
 	const code = single(query, "code");
-	if (single(query, "state") !== journey.state || !code || query.has("error"))
+	if (single(query, "state") !== journey.state || !code || query.has("error")) {
+		warn("oidc.mismatch");
+		count("oidc", "mismatch", "/callback");
 		throw new Refusal("身份确认不匹配，请返回登录重试。");
+	}
 
 	const fetcher = seat.fetcher;
-	const response = await fetcher("/api/token", {
-		method: "POST",
-		cache: "no-store",
-		credentials: "omit",
-		redirect: "error",
-		signal: AbortSignal.timeout(15000),
-		headers: { "content-type": "application/x-www-form-urlencoded" },
-		body: new URLSearchParams({
-			grant_type: "authorization_code",
-			client_id: config.client,
-			redirect_uri: `${url.origin}/callback`,
-			code,
-			code_verifier: journey.verifier,
+	const response = await track("/api/token", "POST", "oidc", () =>
+		fetcher("/api/token", {
+			method: "POST",
+			cache: "no-store",
+			credentials: "omit",
+			redirect: "error",
+			signal: AbortSignal.timeout(15000),
+			headers: { "content-type": "application/x-www-form-urlencoded" },
+			body: new URLSearchParams({
+				grant_type: "authorization_code",
+				client_id: config.client,
+				redirect_uri: `${url.origin}/callback`,
+				code,
+				code_verifier: journey.verifier,
+			}),
 		}),
-	});
+	);
 	if (!response.ok) throw new Refusal("身份确认已失效，请返回登录重试。");
 	const result = await response.json();
 	if (
@@ -275,5 +294,6 @@ export async function complete(
 		value: result.access_token,
 		until: Date.now() + result.expires_in * 1000,
 	};
+	info("oidc.complete");
 	return journey.back;
 }

@@ -19,6 +19,8 @@ path = "src/entry/main.rs"
 radicula-config.workspace = true
 radicula-oidc.workspace = true
 locus.workspace = true
+flate2.workspace = true
+url.workspace = true
 clap = { workspace = true }
 argon2 = { workspace = true }
 password-hash = { workspace = true }
