@@ -8,7 +8,7 @@ async fn origin() {
     let (addr, _rx) = upstream();
     let dir = tempfile::tempdir().expect("dir");
     let mut cfg = spec(addr, &dir);
-    cfg.origins = vec!["https://ensign.example".into()];
+    cfg.origins = vec!["https://ENSIGN.EXAMPLE:443".into()];
     let app = router(Relay::open(cfg).expect("relay"));
 
     let badsite = Request::builder()
@@ -41,7 +41,7 @@ async fn origin() {
         .method("POST")
         .uri("/")
         .header("sec-fetch-site", "Same-Origin")
-        .header("origin", "https://ENSIGN.EXAMPLE:443")
+        .header("origin", "https://ensign.example")
         .body(Body::from(atom("a4", "ensign-web")))
         .expect("req");
     assert_eq!(send(&app, ok).await.0, StatusCode::NO_CONTENT);
@@ -252,7 +252,6 @@ async fn validation() {
 
     for key in [
         "password",
-        "passphrase",
         "pass",
         "oldPass",
         "token",

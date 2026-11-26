@@ -48,7 +48,7 @@ pub async fn serve(root: &str, specs: &[String]) {
         Err(err) => halt("artifact", &err),
     };
     let relay = if runtime.locus.enabled() {
-        match Relay::from(&runtime.locus, Path::new(root)) {
+        match observe::open(&runtime.locus, Path::new(root)) {
             Ok(relay) => Some(relay),
             Err(err) => halt("locus", &err),
         }
