@@ -10,6 +10,7 @@ import {
 	type Snapshot,
 	type Transport,
 } from "@perishlab/radicula-document";
+import type { Lookup } from "./authorization.ts";
 
 export type { Client, Document, Handle, Json, Reply, Snapshot };
 export type Scope = "app" | "shared";
@@ -177,4 +178,79 @@ export function notice(state: Document): string | undefined {
 	return state.phase === "failed"
 		? "暂时无法读取设置，请重试。"
 		: "暂时无法完成操作，请重新读取设置后重试。";
+}
+
+export type Portal = {
+	href?: string;
+	label?: string;
+	note?: string;
+	mood?: "calm" | "warn";
+};
+
+export type Choice = {
+	value: string;
+	label: string;
+	sign: string;
+	mood?: "calm" | "warn";
+};
+
+function shade(value: string): value is Tone {
+	return value === "light" || value === "dark";
+}
+
+export function override(name: string, value?: string): Change {
+	return intent("app", name, value);
+}
+
+export function quick(body: Json | undefined): View | undefined {
+	return views(body)?.app;
+}
+
+export function effective(
+	body: Json | undefined,
+	store: Store,
+): { system: string; tone: Tone } | undefined {
+	const shown = quick(body)?.presentation;
+	if (!shown) return undefined;
+	const family = store.system.read();
+	const mode = store.tone.read();
+	const system =
+		family.state === "value" && family.source === "document"
+			? family.value
+			: shown.system;
+	const tone =
+		mode.state === "value" && mode.source === "document" && shade(mode.value)
+			? mode.value
+			: shown.tone;
+	return { system, tone };
+}
+
+const notices: Record<Exclude<Lookup["status"], "configured">, Portal> = {
+	absent: {
+		note: "当前实例未配置 Folio 全域设置中心地址，暂无法从此处直接跳转。",
+		mood: "calm",
+	},
+	unknown: {
+		note: "暂时无法读取客户端配置，请刷新后重试。",
+		mood: "warn",
+	},
+};
+
+export function center(lookup: Lookup | undefined): Portal {
+	if (!lookup) return {};
+	if (lookup.status === "configured") {
+		return { href: lookup.href, label: "前往 Folio 全域设置中心" };
+	}
+	return notices[lookup.status];
+}
+
+export function menu(hub?: string): Choice[] {
+	return [
+		{ value: "/", label: "概览", sign: "places" },
+		{ value: "/security", label: "安全与恢复", sign: "owns" },
+		{ value: "/sessions", label: "会话与令牌", sign: "bounds" },
+		{ value: "/settings", label: "偏好设置", sign: "draws" },
+		...(hub ? [{ value: hub, label: "Folio 全域设置中心", sign: "away" }] : []),
+		{ value: "/logout", label: "退出登录", sign: "away", mood: "warn" },
+	];
 }

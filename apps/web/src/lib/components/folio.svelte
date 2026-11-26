@@ -1,22 +1,24 @@
 <script lang="ts">
-import { Board, Button, Note, Split, Text } from "@perishlab/design";
+import { Board, Button, Grid, Note, Split, Text } from "@perishlab/design";
 import { onMount } from "svelte";
 import {
-	configuration,
 	forget,
 	held,
+	type Lookup,
 	Refusal,
+	runtime,
 	start,
 } from "../../../authorization.ts";
 import {
+	center,
 	type Document,
+	effective,
 	Failure,
-	intent,
 	notice,
 	open,
-	type Scope,
+	override,
+	quick,
 	type Tone,
-	views,
 } from "../../../preferences.ts";
 import Settings from "./settings.svelte";
 
@@ -26,11 +28,11 @@ let {
 	present?: (next: { system?: string; tone?: Tone }) => void;
 } = $props();
 
-let scope: Scope = $state("app");
 let tone: Tone = $state("light");
 let enabled = $state(false);
 let absent = $state(false);
 let starting = $state(false);
+let lookup: Lookup | undefined = $state();
 let fault: string | undefined = $state();
 let epoch = 0;
 let alive = true;
@@ -42,21 +44,16 @@ let snapshot: Document = $state(store.client.state);
 let paused = $derived(snapshot.phase === "unknown");
 let saving = $derived(snapshot.phase === "ready" && snapshot.pending > 0);
 let busy = $derived(snapshot.phase === "loading" || saving || starting);
-let current = $derived(views(snapshot.document ?? snapshot.confirmed?.document));
+let current = $derived(quick(snapshot.document ?? snapshot.confirmed?.document));
+let destination = $derived(center(lookup));
 let warning = $derived(fault ?? notice(snapshot));
 
 function sync(): void {
-	const confirmed = views(snapshot.confirmed?.document)?.app.presentation;
-	const family = store.system.read();
-	const mode = store.tone.read();
-	const next = {
-		system: family.state === "value" ? family.value : confirmed?.system,
-		tone:
-			mode.state === "value" && (mode.value === "light" || mode.value === "dark")
-				? mode.value
-				: confirmed?.tone,
-	};
-	present?.(next);
+	const next = effective(
+		snapshot.document ?? snapshot.confirmed?.document,
+		store,
+	);
+	if (next) present?.(next);
 }
 
 function active(): boolean {
@@ -81,9 +78,14 @@ async function bind(reset = false): Promise<void> {
 	starting = true;
 	fault = undefined;
 	try {
-		const config = await configuration();
+		const loaded = await runtime();
 		if (!alive) return;
-		if (!config) {
+		lookup = loaded.folio;
+		if (loaded.fault) {
+			fault = loaded.fault.message;
+			return;
+		}
+		if (!loaded.config) {
 			absent = true;
 			return;
 		}
@@ -91,7 +93,7 @@ async function bind(reset = false): Promise<void> {
 		enabled = true;
 		const access = held();
 		if (!access) {
-			const target = await start(config, {
+			const target = await start(loaded.config, {
 				origin: location.origin,
 				back: location.pathname,
 				storage: sessionStorage,
@@ -107,10 +109,10 @@ async function bind(reset = false): Promise<void> {
 		});
 		sync();
 	} catch (error) {
-		if (alive) {
-			fault =
-				error instanceof Refusal ? error.message : "暂时无法读取设置，请重试。";
-		}
+		if (!alive) return;
+		fault =
+			error instanceof Refusal ? error.message : "暂时无法读取设置，请重试。";
+		if (!lookup) lookup = { status: "unknown" };
 	} finally {
 		starting = false;
 		flush();
@@ -144,7 +146,7 @@ function save(name: string, value?: string): void {
 		return;
 	}
 	fault = undefined;
-	store.client.update(intent(scope, name, value));
+	store.client.update(override(name, value));
 	snapshot = store.client.state;
 }
 
@@ -180,33 +182,41 @@ onMount(() => {
 });
 </script>
 
-<Board title="主题与外观偏好" line="通过 Folio 同步此应用或跨应用共享的视觉设置。">
-	{#if absent}
-		<Note text="当前实例未启用远程偏好设置服务，你可以直接使用顶部导航栏的外观按钮在浅色与深色模式之间切换。" />
-	{:else}
-		<Split>
-			<Button label="此应用" look={scope === "app" ? "solid" : "quiet"} halt={busy || paused} press={() => { scope = "app"; }} />
-			<Button label="共享设置" look={scope === "shared" ? "solid" : "quiet"} halt={busy || paused} press={() => { scope = "shared"; }} />
-		</Split>
-		<Text>{scope === "app" ? "仅应用于 Ensign 的主题与外观设置。" : "各应用可继承的共享主题与外观设置。"}</Text>
-		{#if current}
-			<Settings
-				view={current[scope]}
-				level={scope}
-				look="list"
-				busy={busy || paused}
-				error={warning}
-				change={(name, value) => save(name, value)}
-				restore={(name) => save(name)}
-			/>
+<Grid cols={1}>
+	<Board title="Ensign 外观快捷切换" line="快速切换当前应用的主题家族与深浅外观，并同步至 Folio。">
+		{#if absent}
+			<Note text="当前实例未启用远程偏好同步，你可以直接使用顶部导航栏的外观按钮在浅色与深色模式之间切换。" />
+		{:else}
+			<Text>仅覆盖 Ensign 应用内的主题与外观设置；选择“继承共享或默认设置”将跟随 Folio 共享默认值。</Text>
+			{#if current}
+				<Settings
+					view={current}
+					look="list"
+					busy={busy || paused}
+					error={warning}
+					change={(name, value) => save(name, value)}
+					restore={(name) => save(name)}
+				/>
+			{/if}
+			{#if busy}
+				<Note text="正在同步设置…" live />
+			{/if}
+			{#if warning}
+				<Note text={warning} mood="warn" live>
+					<Button label="重新读取设置" look="quiet" {busy} press={() => void reload()} />
+				</Note>
+			{/if}
 		{/if}
-		{#if busy}
-			<Note text="正在同步设置…" live />
+	</Board>
+
+	<Board title="Folio 全域设置中心" line="共享默认值与跨应用覆写由 Folio 统一管理。">
+		<Text>跨应用共享默认值（shared）、各应用专属覆写（ensign、folio 等）及扩展配置均在 Folio 全域设置中心统一管理。</Text>
+		{#if destination.href && destination.label}
+			<Split look="end">
+				<Button label={destination.label} href={destination.href} look="solid" sign="away" />
+			</Split>
+		{:else if destination.note}
+			<Note text={destination.note} mood={destination.mood ?? "calm"} />
 		{/if}
-		{#if warning}
-			<Note text={warning} mood="warn" live>
-				<Button label="重新读取设置" look="quiet" {busy} press={() => void reload()} />
-			</Note>
-		{/if}
-	{/if}
-</Board>
+	</Board>
+</Grid>

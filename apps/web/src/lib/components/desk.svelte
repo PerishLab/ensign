@@ -16,9 +16,10 @@ import {
 } from "@perishlab/design";
 import { onMount, type Snippet } from "svelte";
 import { type Actor, account, Fault } from "../../../account.ts";
-import { forget } from "../../../authorization.ts";
+import { folio, forget, shown, wear } from "../../../authorization.ts";
+import { menu } from "../../../preferences.ts";
+import { read, save, type Tone, watch } from "../../../tone.ts";
 import { login, visit } from "../route.ts";
-import { read, save, type Tone, watch } from "../tone.ts";
 
 export type Entry = {
 	label: string;
@@ -28,13 +29,16 @@ export type Entry = {
 	sign?: string;
 };
 
+const initial = shown();
+
 let {
 	route,
 	title,
 	line,
 	extra = [],
-	system = "google-workspace",
+	system = initial?.system ?? "google-workspace",
 	mode,
+	shade,
 	notes = [],
 	mood = "calm",
 	children,
@@ -45,6 +49,7 @@ let {
 	extra?: Entry[];
 	system?: string;
 	mode?: Tone;
+	shade?: (next: Tone) => void;
 	notes?: string[];
 	mood?: "calm" | "warn";
 	children: Snippet<[Actor, (next: Actor) => void]>;
@@ -55,7 +60,8 @@ let loading = $state(true);
 let fault: Fault | undefined = $state();
 let drawer = $state(false);
 let compact = $state(false);
-let tone: Tone = $state(read());
+let tone: Tone = $state(initial?.tone ?? read());
+let hub: string | undefined = $state();
 let alive = true;
 
 let active = $derived(mode ?? tone);
@@ -81,13 +87,7 @@ let crumbs = $derived<Entry[]>(
 				]
 			: [{ label: "Ensign", href: "/" }, { label: title, href: route, live: true }],
 );
-const choices = [
-	{ value: "/", label: "概览", sign: "places" },
-	{ value: "/security", label: "安全与恢复", sign: "owns" },
-	{ value: "/sessions", label: "会话与令牌", sign: "bounds" },
-	{ value: "/settings", label: "偏好设置", sign: "draws" },
-	{ value: "/logout", label: "退出登录", sign: "away", mood: "warn" as const },
-];
+let choices = $derived(menu(hub));
 
 function toggle(): void {
 	if (matchMedia("(max-width: 47.9375rem)").matches) drawer = !drawer;
@@ -98,10 +98,16 @@ function flip(): void {
 	const next: Tone = active === "dark" ? "light" : "dark";
 	tone = next;
 	save(next);
+	if (shown()) wear({ system, tone: next });
+	shade?.(next);
 }
 
 function move(href: string): void {
 	drawer = false;
+	if (hub && href === hub) {
+		globalThis.open(href, "_blank", "noopener,noreferrer");
+		return;
+	}
 	if (href === "/logout") {
 		globalThis.location.assign(href);
 		return;
@@ -135,6 +141,9 @@ async function load(): Promise<void> {
 onMount(() => {
 	const stop = watch((next) => { tone = next; });
 	void load();
+	void folio().then((result) => {
+		if (alive && result.status === "configured") hub = result.href;
+	});
 	return () => {
 		alive = false;
 		stop();

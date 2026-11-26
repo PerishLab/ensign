@@ -30,13 +30,18 @@ in `charts/ensign` (`web.enabled: true`), with the Ingress splitting `/api` to
 
 ## Settings
 
-Ensign#115 uses the public Design Preference in compact and aggregate views.
-The browser reads Folio app/shared snapshots and sends revisioned intents;
-application presentation always comes from the app snapshot, including while
-editing shared declarations. Device color scheme is request context only.
+`/settings` provides a lightweight Ensign app-level theme and tone quick-switch
+backed by Folio (`/folio/v1/me/documents/preferences`) plus a direct entry to
+the Folio Domain-Wide Settings Center, where shared defaults (`shared`),
+per-app overrides, and extension preferences are managed. Folio-synced
+presentation stays in memory only (cleared on logout or 401) and is never
+cached in `localStorage`. Device color scheme is request context only.
 
-`/client.json` is public deployment input containing `issuer` and `client`.
-The checked-in empty object keeps settings inactive for unconfigured deployments.
+`/client.json` is public deployment input containing `issuer`, `client`, and an
+optional `folio` URL (`http:` / `https:`) pointing to the Folio Domain-Wide
+Settings Center. The checked-in empty object keeps settings inactive for
+unconfigured deployments; omitted or invalid `folio` values degrade gracefully
+as absent, while unreadable `/client.json` surfaces an unknown/retry notice.
 Development and production supply it through the deployment routing. K3s routes
 `/client.json` to the public configuration seat and `/folio` to Folio, removing
 that prefix and the Ensign cookie while preserving the resource bearer.

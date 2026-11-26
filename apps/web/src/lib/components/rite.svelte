@@ -1,7 +1,7 @@
 <script lang="ts">
 import { Frame, Hero, Sheet, Shell } from "@perishlab/design";
 import { onMount, type Snippet } from "svelte";
-import { read, type Tone, watch } from "../tone.ts";
+import { read, type Tone, watch } from "../../../tone.ts";
 
 let {
 	title,

@@ -4,9 +4,14 @@ import test from "node:test";
 import {
 	complete,
 	configuration,
+	folio,
 	forget,
 	held,
+	portal,
+	runtime,
+	shown,
 	start,
+	wear,
 } from "../authorization.ts";
 
 const config = { issuer: "https://identity.example/api", client: "ensignweb" };
@@ -130,4 +135,144 @@ test("successful exchange keeps only the access token in memory and cannot repla
 	);
 	assert.equal(held(), undefined);
 	forget();
+});
+
+test("portal accepts clean http/https URLs and ignores missing, empty, or unsafe values", () => {
+	assert.equal(
+		portal("https://folio.workshop.liberte.host"),
+		"https://folio.workshop.liberte.host/",
+	);
+	assert.equal(
+		portal("  https://folio.workshop.liberte.host/settings?tab=theme  "),
+		"https://folio.workshop.liberte.host/settings?tab=theme",
+	);
+	assert.equal(portal("http://localhost:4173"), "http://localhost:4173/");
+	for (const raw of [
+		undefined,
+		null,
+		123,
+		{},
+		"",
+		"   ",
+		"/settings",
+		"//folio.example",
+		"folio.example",
+		"javascript:alert(1)",
+		"data:text/html,hi",
+		"ftp://folio.example",
+		"https://user:pass@folio.example",
+		"https://folio.example/bad path",
+		"https://folio.example/\nbad",
+	]) {
+		assert.equal(portal(raw), undefined, String(raw));
+	}
+});
+
+test("configuration parses optional folio URL and degrades gracefully when omitted or invalid", async () => {
+	const discovery = {
+		issuer: config.issuer,
+		authorization_endpoint: `${config.issuer}/authorize`,
+		token_endpoint: `${config.issuer}/token`,
+	};
+	const pair = (client) => {
+		let calls = 0;
+		return async () => Response.json(++calls === 1 ? client : discovery);
+	};
+	assert.deepEqual(
+		await configuration(
+			pair({ ...config, folio: "https://folio.workshop.liberte.host" }),
+		),
+		{ ...config, folio: "https://folio.workshop.liberte.host/" },
+	);
+	assert.deepEqual(await configuration(pair(config)), config);
+	for (const bad of ["", "   ", "javascript:alert(1)", "not-a-url", 42]) {
+		assert.deepEqual(
+			await configuration(pair({ ...config, folio: bad })),
+			config,
+		);
+	}
+	assert.equal(
+		await configuration(async () =>
+			Response.json({ folio: "https://folio.workshop.liberte.host" }),
+		),
+		undefined,
+	);
+});
+
+test("folio and runtime distinguish configured, absent, and unknown without duplicate client fetches", async () => {
+	assert.deepEqual(
+		await folio(async () =>
+			Response.json({ folio: "https://folio.workshop.liberte.host" }),
+		),
+		{ status: "configured", href: "https://folio.workshop.liberte.host/" },
+	);
+	assert.deepEqual(await folio(async () => Response.json({})), {
+		status: "absent",
+	});
+	assert.deepEqual(
+		await folio(async () => Response.json({ folio: "javascript:alert(1)" })),
+		{ status: "absent" },
+	);
+	assert.deepEqual(
+		await folio(async () => new Response(null, { status: 404 })),
+		{ status: "absent" },
+	);
+	for (const reply of [
+		async () => new Response(null, { status: 503 }),
+		async () => new Response("not-json", { status: 200 }),
+		async () => Response.json([]),
+		async () => {
+			throw new TypeError("offline");
+		},
+	]) {
+		assert.deepEqual(await folio(reply), { status: "unknown" });
+	}
+
+	let calls = 0;
+	const standalone = await runtime(async () => {
+		calls += 1;
+		return Response.json({ folio: "https://folio.workshop.liberte.host" });
+	});
+	assert.equal(calls, 1);
+	assert.equal(standalone.config, undefined);
+	assert.equal(standalone.fault, undefined);
+	assert.deepEqual(standalone.folio, {
+		status: "configured",
+		href: "https://folio.workshop.liberte.host/",
+	});
+
+	let probe = 0;
+	const broken = await runtime(async () => {
+		probe += 1;
+		return probe === 1
+			? Response.json({
+					...config,
+					folio: "https://folio.workshop.liberte.host",
+				})
+			: new Response(null, { status: 503 });
+	});
+	assert.equal(probe, 2);
+	assert.equal(broken.config, undefined);
+	assert.ok(broken.fault);
+	assert.deepEqual(broken.folio, {
+		status: "configured",
+		href: "https://folio.workshop.liberte.host/",
+	});
+
+	const offline = await runtime(
+		async () => new Response(null, { status: 503 }),
+	);
+	assert.equal(offline.config, undefined);
+	assert.ok(offline.fault);
+	assert.deepEqual(offline.folio, { status: "unknown" });
+});
+
+test("in-memory presentation clears on forget so logout and 401 prevent cross-user leakage", () => {
+	forget();
+	assert.equal(shown(), undefined);
+	wear({ system: "material", tone: "dark" });
+	assert.deepEqual(shown(), { system: "material", tone: "dark" });
+	assert.equal(sessionStorage.length, 0);
+	forget();
+	assert.equal(shown(), undefined);
 });
