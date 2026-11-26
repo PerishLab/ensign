@@ -60,6 +60,8 @@ test("S256 binds the stored verifier and exact client, callback, audience and lo
 	assert.equal(url.searchParams.get("client_id"), config.client);
 	assert.equal(transaction.back, "/settings");
 	assert.equal("access_token" in transaction, false);
+	await journey("/security");
+	await journey("/sessions");
 	await assert.rejects(journey("//foreign.example"), /返回地址/);
 });
 
