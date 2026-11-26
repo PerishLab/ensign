@@ -1516,9 +1516,9 @@ dependencies = [
 
 [[package]]
 name = "locus"
-version = "0.29.0"
+version = "0.30.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "7384d4c944e5ba3bf4a9547ba83b8b3797ab961142a6a8cdcd62e8dba35cff33"
+checksum = "11bf716e7eee40dad4557cd01a3a649d18f78babbd1725caee55ebab8799cf70"
 dependencies = [
  "getrandom 0.3.4",
  "locus-macro",
@@ -1534,9 +1534,9 @@ dependencies = [
 
 [[package]]
 name = "locus-macro"
-version = "0.29.0"
+version = "0.30.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "ce5db2373294b051aa77fbcb9e1f570aff00ae6f6eb611e506b3a2b4ad8dea90"
+checksum = "19ebcc84f5fec63a22e47a31319ca24736291a3c737277c7d77d9c90469d4aa0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1545,9 +1545,9 @@ dependencies = [
 
 [[package]]
 name = "locus-relay"
-version = "0.29.0"
+version = "0.30.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "ba2d0393be9e786b672fbdb624261b5717baf265ff87b335ef43e41083799644"
+checksum = "a1e12913adf4a0f9285d28f578d4249bb18ecedf4c9d9089f8308c6f92876467"
 dependencies = [
  "axum",
  "flate2",
