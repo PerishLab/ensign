@@ -1,6 +1,16 @@
 export class Refusal extends Error {}
 
-export type Config = { issuer: string; client: string };
+export type Config = { issuer: string; client: string; folio?: string };
+export type Surface = { system?: string; tone?: "light" | "dark" };
+export type Lookup =
+	| { status: "configured"; href: string }
+	| { status: "absent" }
+	| { status: "unknown" };
+export type Runtime = {
+	config?: Config;
+	folio: Lookup;
+	fault?: Refusal;
+};
 type Vault = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 type Seat = { origin: string; back: string; storage: Vault; crypto: Crypto };
 type Journey = Config & {
@@ -12,49 +22,144 @@ type Journey = Config & {
 
 const slot = "ensign.authorization";
 let access: { value: string; until: number } | undefined;
+let surface: Surface | undefined;
 
 export function held(): string | undefined {
 	return access && access.until > Date.now() ? access.value : undefined;
 }
 
+export function shown(): Surface | undefined {
+	return surface;
+}
+
+export function wear(next: Surface | undefined): void {
+	surface = next;
+}
+
 export function forget(): void {
 	access = undefined;
+	surface = undefined;
 	globalThis.sessionStorage?.removeItem(slot);
+}
+
+function record(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function clean(text: string): boolean {
+	if (!text || /\s/u.test(text)) return false;
+	for (const char of text) {
+		const point = char.codePointAt(0) ?? 0;
+		if (point < 32 || (point >= 127 && point <= 159)) return false;
+	}
+	return true;
+}
+
+export function portal(raw: unknown): string | undefined {
+	if (typeof raw !== "string") return undefined;
+	const text = raw.trim();
+	if (!clean(text)) return undefined;
+	try {
+		const url = new URL(text);
+		if (url.protocol !== "http:" && url.protocol !== "https:") return undefined;
+		if (url.username || url.password || !url.hostname) return undefined;
+		return url.href;
+	} catch {
+		return undefined;
+	}
+}
+
+async function manifest(
+	fetcher: typeof fetch,
+): Promise<{ body?: Record<string, unknown>; folio: Lookup }> {
+	try {
+		const response = await fetcher("/client.json", {
+			cache: "no-store",
+			credentials: "omit",
+			redirect: "error",
+			signal: AbortSignal.timeout(15000),
+		});
+		if (response.status === 404) return { folio: { status: "absent" } };
+		if (!response.ok) return { folio: { status: "unknown" } };
+		const body = await response.json();
+		if (!record(body)) return { folio: { status: "unknown" } };
+		const href = portal(body.folio);
+		return {
+			body,
+			folio: href ? { status: "configured", href } : { status: "absent" },
+		};
+	} catch {
+		return { folio: { status: "unknown" } };
+	}
+}
+
+async function verify(
+	issuer: string,
+	fetcher: typeof fetch,
+): Promise<Refusal | undefined> {
+	try {
+		const discovery = await fetcher("/api/.well-known/openid-configuration", {
+			cache: "no-store",
+			credentials: "omit",
+			redirect: "error",
+			signal: AbortSignal.timeout(15000),
+		});
+		if (!discovery.ok) return new Refusal("暂时无法确认设置身份，请重试。");
+		const known = await discovery.json();
+		if (!record(known)) return new Refusal("无法确认设置服务的身份。");
+		if (
+			known.issuer !== issuer ||
+			known.authorization_endpoint !== `${issuer}/authorize` ||
+			known.token_endpoint !== `${issuer}/token`
+		) {
+			return new Refusal("无法确认设置服务的身份。");
+		}
+		return undefined;
+	} catch {
+		return new Refusal("暂时无法确认设置身份，请重试。");
+	}
+}
+
+export async function folio(fetcher: typeof fetch = fetch): Promise<Lookup> {
+	return (await manifest(fetcher)).folio;
+}
+
+export async function runtime(fetcher: typeof fetch = fetch): Promise<Runtime> {
+	const loaded = await manifest(fetcher);
+	if (!loaded.body) {
+		return {
+			folio: loaded.folio,
+			fault: new Refusal("暂时无法读取设置，请重试。"),
+		};
+	}
+	const body = loaded.body;
+	if (!body.issuer && !body.client) return { folio: loaded.folio };
+	if (
+		typeof body.issuer !== "string" ||
+		typeof body.client !== "string" ||
+		!body.client
+	) {
+		return {
+			folio: loaded.folio,
+			fault: new Refusal("暂时无法确认设置身份，请重试。"),
+		};
+	}
+	const fault = await verify(body.issuer, fetcher);
+	if (fault) return { folio: loaded.folio, fault };
+	const href =
+		loaded.folio.status === "configured" ? loaded.folio.href : undefined;
+	const config: Config = href
+		? { issuer: body.issuer, client: body.client, folio: href }
+		: { issuer: body.issuer, client: body.client };
+	return { config, folio: loaded.folio };
 }
 
 export async function configuration(
 	fetcher: typeof fetch = fetch,
 ): Promise<Config | undefined> {
-	const response = await fetcher("/client.json", {
-		cache: "no-store",
-		credentials: "omit",
-		redirect: "error",
-		signal: AbortSignal.timeout(15000),
-	});
-	if (!response.ok) throw new Refusal("暂时无法读取设置，请重试。");
-	const config = await response.json();
-	if (!config.issuer && !config.client) return undefined;
-	if (
-		typeof config.issuer !== "string" ||
-		typeof config.client !== "string" ||
-		!config.client
-	)
-		throw new Refusal("暂时无法确认设置身份，请重试。");
-	const discovery = await fetcher("/api/.well-known/openid-configuration", {
-		cache: "no-store",
-		credentials: "omit",
-		redirect: "error",
-		signal: AbortSignal.timeout(15000),
-	});
-	if (!discovery.ok) throw new Refusal("暂时无法确认设置身份，请重试。");
-	const known = await discovery.json();
-	if (
-		known.issuer !== config.issuer ||
-		known.authorization_endpoint !== `${config.issuer}/authorize` ||
-		known.token_endpoint !== `${config.issuer}/token`
-	)
-		throw new Refusal("无法确认设置服务的身份。");
-	return { issuer: config.issuer, client: config.client };
+	const loaded = await runtime(fetcher);
+	if (loaded.fault) throw loaded.fault;
+	return loaded.config;
 }
 
 function encode(bytes: Uint8Array): string {

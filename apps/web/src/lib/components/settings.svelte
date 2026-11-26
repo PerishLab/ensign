@@ -1,10 +1,9 @@
 <script lang="ts">
 import { Preference } from "@perishlab/design";
-import type { Scope, View } from "../../../preferences.ts";
+import type { View } from "../../../preferences.ts";
 
 let {
 	view,
-	level,
 	look,
 	busy,
 	error,
@@ -12,7 +11,6 @@ let {
 	restore,
 }: {
 	view: View;
-	level: Scope;
 	look: "line" | "list";
 	busy: boolean;
 	error?: string;
@@ -45,14 +43,14 @@ const sources = {
 		label={labels[item.name] ?? item.name}
 		value={item.effective}
 		source={item.source}
-		declaration={level === "app" ? item.app : item.shared}
+		declaration={item.app}
 		origin={sources[item.source]}
 		effect={`当前生效：${labels[item.effective] ?? item.effective}`}
 		choices={item.options.map((value) => ({ value, label: labels[value] ?? value }))}
 		editable={item.editable}
 		{busy}
 		{error}
-		inherit={level === "app" ? "继承共享或默认设置" : "恢复默认设置"}
+		inherit="继承共享或默认设置"
 		{look}
 		change={(value) => change(item.name, value)}
 		restore={() => restore(item.name)}
