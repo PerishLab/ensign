@@ -46,7 +46,7 @@ importers:
         version: 0.10.0(sass@1.105.0)(svelte@5.57.1)
       '@perishlab/locus':
         specifier: '0'
-        version: 0.29.0
+        version: 0.30.0
       '@perishlab/radicula-document':
         specifier: '0'
         version: 0.21.0
@@ -263,8 +263,8 @@ packages:
       sass: '>=1.101'
       svelte: '>=5.56'
 
-  '@perishlab/locus@0.29.0':
-    resolution: {integrity: sha512-pVvUzdaYO/LVgxvSUfJWpD25qZ2pDmHFlKSBkCz8q/WBLUHksUc8voZp3W/kJez0OuG5bcdXM11nKWGEoWGEcg==, tarball: https://npm.pkg.github.com/download/@perishlab/locus/0.29.0/87607ebd08c4f0cfc24fe4a4ebd8157cdb65a365}
+  '@perishlab/locus@0.30.0':
+    resolution: {integrity: sha512-vij88n2szoS9ZQYlmr6e+yHTzwLbfGWB7s8exNbgzl8bTp1o5kJLC2+zju/31t4v9wDjw60xS+z9h699TC3L1A==, tarball: https://npm.pkg.github.com/download/@perishlab/locus/0.30.0/727abe0a03d5bb354e07cf6bb9ff63c49272c53d}
 
   '@perishlab/radicula-document@0.21.0':
     resolution: {integrity: sha512-rLDKgTNqfyrZTqpsVNRobmayGu5IItonQNnZqiy4oFSZnWxuUY3o82lfkYhjGsS3AmBhjbFK6jM6/WbYt0oARA==, tarball: https://npm.pkg.github.com/download/@perishlab/radicula-document/0.21.0/536b0e5babcd3d6bef66c314661b4b152d62ac71}
@@ -855,7 +855,7 @@ snapshots:
       sass: 1.105.0
       svelte: 5.57.1
 
-  '@perishlab/locus@0.29.0': {}
+  '@perishlab/locus@0.30.0': {}
 
   '@perishlab/radicula-document@0.21.0': {}
 
