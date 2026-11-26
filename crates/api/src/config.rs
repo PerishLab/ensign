@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 pub const NAME: &str = "ensign.toml";
 
 #[derive(Debug, Default, PartialEq, Cascade)]
-#[plumb::config::prefix]
+#[plumb::config::prefix("ENSIGN")]
 pub struct Runtime {
     pub fresh: bool,
     pub iss: String,
@@ -179,13 +179,63 @@ impl Locus {
 
 pub fn load(start: &Path) -> Result<Runtime, radicula_config::Error> {
     let found = plumb::config::discover(start, NAME).ok();
-    let mut runtime =
-        Runtime::resolve(found.as_deref(), &Runtime::prefix(), &plumb::config::value)?;
-    if let Some(value) = plumb::config::value("ENSIGN_LOCUS_KEY") {
-        let trimmed = value.trim();
-        if !trimmed.is_empty() {
-            runtime.locus.key = trimmed.to_string();
-        }
+    Runtime::resolve(
+        found.as_deref(),
+        &Runtime::prefix(),
+        &plumb::config::migrated(&Runtime::prefix(), "API", &plumb::config::value),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn from(pairs: &[(&str, &str)]) -> Runtime {
+        let map: HashMap<String, String> = pairs
+            .iter()
+            .map(|(key, value)| ((*key).to_string(), (*value).to_string()))
+            .collect();
+        let reader = |name: &str| map.get(name).cloned();
+        let lookup = plumb::config::migrated(&Runtime::prefix(), "API", &reader);
+        Runtime::resolve(None, &Runtime::prefix(), &lookup).expect("resolve runtime")
     }
-    Ok(runtime)
+
+    #[test]
+    fn prefix() {
+        assert_eq!(Runtime::prefix(), "ENSIGN");
+    }
+
+    #[test]
+    fn precedence() {
+        let runtime = from(&[
+            ("ENSIGN_ISS", "https://ensign.example/api"),
+            ("API_ISS", "https://legacy.example/api"),
+            ("ENSIGN_STORE_KIND", "pg"),
+            ("API_STORE_KIND", "file"),
+            ("ENSIGN_STORE_URL", "postgres://ensign"),
+            ("API_STORE_URL", "postgres://legacy"),
+            ("ENSIGN_LOCUS_KEY", "primary-key"),
+            ("API_LOCUS_KEY", "legacy-key"),
+        ]);
+        assert_eq!(runtime.iss, "https://ensign.example/api");
+        assert_eq!(runtime.store.kind, Kind::Pg);
+        assert_eq!(runtime.store.url, "postgres://ensign");
+        assert_eq!(runtime.locus.key, "primary-key");
+    }
+
+    #[test]
+    fn fallback() {
+        let runtime = from(&[
+            ("ENSIGN_LOCUS_KEY", "   "),
+            ("API_ISS", "https://legacy.example/api"),
+            ("API_STORE_KIND", "pg"),
+            ("API_STORE_URL", "postgres://legacy"),
+            ("API_LOCUS_KEY", "legacy-key"),
+        ]);
+        assert_eq!(runtime.iss, "https://legacy.example/api");
+        assert_eq!(runtime.store.kind, Kind::Pg);
+        assert_eq!(runtime.store.url, "postgres://legacy");
+        assert_eq!(runtime.locus.key, "legacy-key");
+    }
 }

@@ -1,5 +1,7 @@
-{{- if .Values.locus.enabled }}
-{{- if not .Values.locus.endpoint }}
+{{- $api := .Values.api | default dict }}
+{{- $locus := .Values.locus | default dict }}
+{{- if $locus.enabled }}
+{{- if not $locus.endpoint }}
 {{- fail "locus.endpoint must be set when locus.enabled is true" }}
 {{- end }}
 {{- end }}
@@ -11,7 +13,7 @@ data:
   ensign.toml: |
     [listen]
     host = "0.0.0.0"
-    port = {{ .Values.api.port }}
+    port = {{ $api.port | default 8080 }}
     prefix = ""
 
     [store]
@@ -19,16 +21,16 @@ data:
 
     [cache]
     kind = "memory"
-    {{- if .Values.locus.enabled }}
+    {{- if $locus.enabled }}
 
     [locus]
-    endpoint = {{ .Values.locus.endpoint | quote }}
-    producer = {{ .Values.locus.producer | quote }}
-    buffer = {{ .Values.locus.buffer | quote }}
-    {{- if .Values.locus.origins }}
-    origins = {{ join "," .Values.locus.origins | quote }}
+    endpoint = {{ $locus.endpoint | quote }}
+    producer = {{ $locus.producer | default "ensign-web" | quote }}
+    buffer = {{ $locus.buffer | default "/tmp/ensign-locus-relay/spool" | quote }}
+    {{- if $locus.origins }}
+    origins = {{ join "," $locus.origins | quote }}
     {{- end }}
-    rpm = {{ .Values.locus.rpm }}
-    burst = {{ .Values.locus.burst }}
-    forwarded = {{ .Values.locus.forwarded }}
+    rpm = {{ $locus.rpm | default 120 }}
+    burst = {{ $locus.burst | default 30 }}
+    forwarded = {{ if hasKey $locus "forwarded" }}{{ $locus.forwarded }}{{ else }}true{{ end }}
     {{- end }}

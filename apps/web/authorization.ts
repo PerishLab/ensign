@@ -1,3 +1,4 @@
+import { load } from "./src/lib/client.ts";
 import { count, info, track, warn } from "./src/lib/observe.ts";
 
 export class Refusal extends Error {}
@@ -75,25 +76,13 @@ export function portal(raw: unknown): string | undefined {
 async function manifest(
 	fetcher: typeof fetch,
 ): Promise<{ body?: Record<string, unknown>; folio: Lookup }> {
-	try {
-		const response = await fetcher("/client.json", {
-			cache: "no-store",
-			credentials: "omit",
-			redirect: "error",
-			signal: AbortSignal.timeout(15000),
-		});
-		if (response.status === 404) return { folio: { status: "absent" } };
-		if (!response.ok) return { folio: { status: "unknown" } };
-		const body = await response.json();
-		if (!record(body)) return { folio: { status: "unknown" } };
-		const href = portal(body.folio);
-		return {
-			body,
-			folio: href ? { status: "configured", href } : { status: "absent" },
-		};
-	} catch {
-		return { folio: { status: "unknown" } };
-	}
+	const loaded = await load(fetcher);
+	if (loaded.status !== "ok") return { folio: { status: loaded.status } };
+	const href = portal(loaded.body.folio);
+	return {
+		body: loaded.body,
+		folio: href ? { status: "configured", href } : { status: "absent" },
+	};
 }
 
 async function verify(

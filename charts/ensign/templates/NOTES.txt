@@ -52,7 +52,14 @@ Seed the first administrator with the cli, which reads sudo from stdin:
 Sudo is the one pre-identity axiom. Use it to open the first invite and to
 crown the first administrator, then leave it dormant for lockout recovery.
 
-{{ if .Values.web.enabled -}}
+{{- $api := .Values.api | default dict }}
+{{- $web := .Values.web | default dict }}
+{{- $webEnabled := true }}
+{{- if hasKey $web "enabled" }}
+{{- $webEnabled = $web.enabled }}
+{{- end }}
+{{- $ingress := .Values.ingress | default dict }}
+{{ if $webEnabled -}}
 This release deploys the dual-OCI topology: {{ .Release.Name }}-api serves
 JSON and OIDC endpoints under /api, and {{ .Release.Name }}-web serves the
 independent browser surface (/login, /logout, /settings, /callback) under /.
@@ -64,4 +71,4 @@ not serve browser pages; supply the independent web surface separately and route
 issuer.
 {{- end }}
 
-  {{ if .Values.ingress.enabled }}{{ $ann := .Values.ingress.annotations | default dict }}{{ if or .Values.ingress.tls (eq (get $ann "traefik.ingress.kubernetes.io/router.tls") "true") }}https{{ else }}http{{ end }}://{{ .Values.ingress.host }}/api{{ else }}(ingress disabled — port-forward svc/{{ .Release.Name }}-api:{{ .Values.api.port }}){{ end }}
+  {{ if $ingress.enabled }}{{ $ann := $ingress.annotations | default dict }}{{ if or $ingress.tls (eq (get $ann "traefik.ingress.kubernetes.io/router.tls") "true") }}https{{ else }}http{{ end }}://{{ $ingress.host | default "ensign.local" }}/api{{ else }}(ingress disabled — port-forward svc/{{ .Release.Name }}-api:{{ $api.port | default 8080 }}){{ end }}

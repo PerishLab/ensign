@@ -1,4 +1,5 @@
 import { capture, type Fetcher, Locus } from "@perishlab/locus";
+import { clear, load } from "./client.ts";
 
 const producer = "ensign-web";
 
@@ -49,6 +50,7 @@ export async function flush(): Promise<void> {
 }
 
 export async function reset(): Promise<void> {
+	clear();
 	detach?.();
 	detach = undefined;
 	await client.close();
@@ -56,23 +58,10 @@ export async function reset(): Promise<void> {
 }
 
 export async function boot(fetcher: typeof fetch = fetch): Promise<boolean> {
-	try {
-		const response = await fetcher("/client.json", {
-			cache: "no-store",
-			credentials: "omit",
-			redirect: "error",
-			signal: AbortSignal.timeout(15000),
-		});
-		if (!response.ok) return false;
-		const body: unknown = await response.json();
-		if (typeof body !== "object" || body === null || Array.isArray(body)) {
-			return false;
-		}
-		const target = (body as Record<string, unknown>).observe;
-		return typeof target === "string" ? activate(target) : false;
-	} catch {
-		return false;
-	}
+	const loaded = await load(fetcher);
+	if (loaded.status !== "ok") return false;
+	const target = loaded.body.observe;
+	return typeof target === "string" ? activate(target) : false;
 }
 
 export function route(raw: string): string {
