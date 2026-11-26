@@ -1,5 +1,5 @@
 <script lang="ts">
-import { Button, Link, Note, Shell, Split, Text } from "@perishlab/design";
+import { Board, Button, Note, Split, Text } from "@perishlab/design";
 import { onMount } from "svelte";
 import {
 	configuration,
@@ -18,59 +18,49 @@ import {
 	type Tone,
 	views,
 } from "../../../preferences.ts";
-import Identity from "./identity.svelte";
 import Settings from "./settings.svelte";
 
 let {
-	leaving = false,
-	settings = false,
-}: { leaving?: boolean; settings?: boolean } = $props();
+	present,
+}: {
+	present?: (next: { system?: string; tone?: Tone }) => void;
+} = $props();
+
 let scope: Scope = $state("app");
 let tone: Tone = $state("light");
 let enabled = $state(false);
+let absent = $state(false);
 let starting = $state(false);
 let fault: string | undefined = $state();
 let epoch = 0;
-let who = false;
 let alive = true;
 let again = false;
 
 const store = open({ access: held, device: () => tone });
 let snapshot: Document = $state(store.client.state);
 
-function theme(
-	state: Document,
-	fallback: Tone,
-): { system: string; tone: Tone } {
-	const confirmed = views(state.confirmed?.document)?.app.presentation;
-	const family = store.system.read();
-	const mode = store.tone.read();
-	return {
-		system:
-			family.state === "value"
-				? family.value
-				: (confirmed?.system ?? "google-accounts"),
-		tone:
-			mode.state === "value" &&
-			(mode.value === "light" || mode.value === "dark")
-				? mode.value
-				: (confirmed?.tone ?? fallback),
-	};
-}
-
 let paused = $derived(snapshot.phase === "unknown");
 let saving = $derived(snapshot.phase === "ready" && snapshot.pending > 0);
 let busy = $derived(snapshot.phase === "loading" || saving || starting);
 let current = $derived(views(snapshot.document ?? snapshot.confirmed?.document));
 let warning = $derived(fault ?? notice(snapshot));
-let design = $derived(theme(snapshot, tone));
 
-function usable(): boolean {
-	return alive && who && !leaving;
+function sync(): void {
+	const confirmed = views(snapshot.confirmed?.document)?.app.presentation;
+	const family = store.system.read();
+	const mode = store.tone.read();
+	const next = {
+		system: family.state === "value" ? family.value : confirmed?.system,
+		tone:
+			mode.state === "value" && (mode.value === "light" || mode.value === "dark")
+				? mode.value
+				: confirmed?.tone,
+	};
+	present?.(next);
 }
 
 function active(): boolean {
-	return usable() && enabled;
+	return alive && enabled;
 }
 
 function blocked(): boolean {
@@ -86,13 +76,17 @@ function flush(): void {
 }
 
 async function bind(reset = false): Promise<void> {
-	if (!usable() || starting) return;
+	if (!alive || starting) return;
 	if (!reset && blocked()) return;
 	starting = true;
 	fault = undefined;
 	try {
 		const config = await configuration();
-		if (!usable() || !config) return;
+		if (!alive) return;
+		if (!config) {
+			absent = true;
+			return;
+		}
 		if (!reset && blocked()) return;
 		enabled = true;
 		const access = held();
@@ -103,7 +97,7 @@ async function bind(reset = false): Promise<void> {
 				storage: sessionStorage,
 				crypto,
 			});
-			if (usable()) location.assign(target);
+			if (alive) location.assign(target);
 			return;
 		}
 		if (reset && store.client.state.phase === "unknown") epoch += 1;
@@ -111,6 +105,7 @@ async function bind(reset = false): Promise<void> {
 			key: "preferences",
 			identity: `${access}:${tone}:${epoch}`,
 		});
+		sync();
 	} catch (error) {
 		if (alive) {
 			fault =
@@ -123,14 +118,13 @@ async function bind(reset = false): Promise<void> {
 }
 
 async function reload(): Promise<void> {
-	if (!usable() || busy) return;
+	if (!alive || busy) return;
 	fault = undefined;
 	const access = held();
 	if (!access || !enabled) {
 		await bind(true);
 		return;
 	}
-	if (!usable()) return;
 	if (store.client.state.phase === "unknown") {
 		epoch += 1;
 		await store.client.select({
@@ -140,19 +134,6 @@ async function reload(): Promise<void> {
 		return;
 	}
 	await store.client.refresh();
-}
-
-function identify(present: boolean): void {
-	who = present;
-	if (!present) {
-		again = false;
-		forget();
-		fault = undefined;
-		void store.client.select(null);
-		snapshot = store.client.state;
-		return;
-	}
-	void bind();
 }
 
 function save(name: string, value?: string): void {
@@ -171,6 +152,7 @@ onMount(() => {
 	const stop = store.client.subscribe(() => {
 		if (!alive) return;
 		snapshot = store.client.state;
+		sync();
 		if (snapshot.phase === "unknown") again = false;
 		if (snapshot.error instanceof Failure && snapshot.error.status === 401) {
 			forget();
@@ -189,7 +171,7 @@ onMount(() => {
 		void bind();
 	};
 	media.addEventListener("change", change);
-	snapshot = store.client.state;
+	void bind();
 	return () => {
 		alive = false;
 		stop();
@@ -198,17 +180,33 @@ onMount(() => {
 });
 </script>
 
-<Shell system={design.system} tone={design.tone}>
-	<Identity {leaving} {settings} ready={identify}>
-		{#if enabled || warning}
-			{#if settings}
-				<Split><Button label="此应用" look={scope === "app" ? "solid" : "quiet"} halt={busy || paused} press={() => { scope = "app"; }} /><Button label="共享设置" look={scope === "shared" ? "solid" : "quiet"} halt={busy || paused} press={() => { scope = "shared"; }} /></Split>
-				<Text>{scope === "app" ? "此应用的主题与外观" : "各应用可继承的主题与外观"}</Text>
-			{/if}
-			{#if current}<Settings view={current[scope]} level={scope} look={settings ? "list" : "line"} busy={busy || paused} error={warning} change={(name, value) => save(name, value)} restore={name => save(name)} />{/if}
-			{#if busy}<Note text="正在同步设置…" live />{/if}
-			{#if warning}<Note text={warning} mood="warn" live /><Button label="重新读取设置" look="quiet" {busy} press={() => void reload()} />{/if}
-			<Link href={settings ? "/login" : "/settings"} label={settings ? "返回快捷设置" : "全部设置"} />
+<Board title="主题与外观偏好" line="通过 Folio 同步此应用或跨应用共享的视觉设置。">
+	{#if absent}
+		<Note text="当前实例未启用远程偏好设置服务，你可以直接使用顶部导航栏的外观按钮在浅色与深色模式之间切换。" />
+	{:else}
+		<Split>
+			<Button label="此应用" look={scope === "app" ? "solid" : "quiet"} halt={busy || paused} press={() => { scope = "app"; }} />
+			<Button label="共享设置" look={scope === "shared" ? "solid" : "quiet"} halt={busy || paused} press={() => { scope = "shared"; }} />
+		</Split>
+		<Text>{scope === "app" ? "仅应用于 Ensign 的主题与外观设置。" : "各应用可继承的共享主题与外观设置。"}</Text>
+		{#if current}
+			<Settings
+				view={current[scope]}
+				level={scope}
+				look="list"
+				busy={busy || paused}
+				error={warning}
+				change={(name, value) => save(name, value)}
+				restore={(name) => save(name)}
+			/>
 		{/if}
-	</Identity>
-</Shell>
+		{#if busy}
+			<Note text="正在同步设置…" live />
+		{/if}
+		{#if warning}
+			<Note text={warning} mood="warn" live>
+				<Button label="重新读取设置" look="quiet" {busy} press={() => void reload()} />
+			</Note>
+		{/if}
+	{/if}
+</Board>

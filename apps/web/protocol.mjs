@@ -12,7 +12,11 @@ export function destination(raw, origin) {
 	if (path.includes("%")) return null;
 	try {
 		const url = new URL(raw, origin);
-		if (url.origin !== origin || ["/login", "/logout"].includes(url.pathname))
+		const clean = url.pathname.replace(/\/+$/u, "") || "/";
+		if (
+			url.origin !== origin ||
+			["/login", "/logout", "/join", "/recover"].includes(clean)
+		)
 			return null;
 		return `${url.pathname}${url.search}${url.hash}`;
 	} catch {

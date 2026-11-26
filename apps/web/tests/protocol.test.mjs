@@ -27,8 +27,15 @@ test("untrusted return destinations and authentication loops are refused", () =>
 		"/%252f%252fevil.example",
 		"/\nevil.example",
 		"/login",
+		"/login/",
 		"/logout",
+		"/logout/",
+		"/join",
+		"/join/",
+		"/recover",
+		"/recover/",
 		"/x/../login",
+		"/x/../join///?code=abc",
 		"/login?return=/api/authorize",
 	]) {
 		assert.equal(destination(raw, origin), null, String(raw));
