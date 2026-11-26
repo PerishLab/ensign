@@ -76,3 +76,55 @@ file = "deploy/web.Dockerfile"
 registry = "ghcr.io"
 chart = "perishlab/ensign"
 account = "PerishLab"
+
+[[ectropy.grant]]
+paths = [
+    "crates/api/src/startup/site.rs",
+    "crates/cli/src/cookbook.rs",
+]
+syntax = "embed"
+
+[[ectropy.grant]]
+paths = [
+    "apps/web/vite.config.ts",
+    "crates/api/src/config.rs",
+    "crates/cli/src/config.rs",
+]
+syntax = "environment"
+
+[sidecar.project]
+name = "ensign"
+namespace = "ensign"
+root = "."
+
+[sidecar.app]
+name = "web"
+command = "pnpm"
+args = ["--filter", "@perishlab/ensign-web", "dev", "--host", "127.0.0.1"]
+cwd = "."
+mode = "dev"
+port = 0
+health_url = "http://127.0.0.1:{port}"
+inherits_env = [{ name = "API_URL", from = "api.endpoint" }]
+
+[[sidecar.sidecars]]
+name = "api"
+command = "cargo"
+args = ["run", "--locked", "-p", "api", "--", "."]
+cwd = "."
+mode = "dev"
+port = 0
+env = { KEEL_LISTEN_PORT = "{port}" }
+health_url = "http://127.0.0.1:{port}/api/health"
+ready = { role = "api" }
+
+[[sidecar.sidecars]]
+name = "web-built"
+command = "node"
+args = ["apps/web/dist/.perish/server.mjs", "apps/web/dist"]
+cwd = "."
+mode = "built"
+port = 0
+env = { HOST = "127.0.0.1", PORT = "{port}" }
+health_url = "http://127.0.0.1:{port}"
+inherits_env = [{ name = "API_URL", from = "api.endpoint" }]
