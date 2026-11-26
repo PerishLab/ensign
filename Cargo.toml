@@ -13,6 +13,8 @@ ensign-client = { version = "=0.0.0", path = "crates/lib", registry = "perish" }
 radicula-oidc = { version = "0", registry = "perish" }
 radicula-config = { version = "0", registry = "perish" }
 locus = { version = "0", registry = "perish" }
+flate2 = "1"
+url = "2"
 tempfile = "3"
 clap = { version = "4", features = ["derive"] }
 argon2 = { version = "0.5", features = ["std"] }

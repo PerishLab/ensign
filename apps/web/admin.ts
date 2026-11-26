@@ -10,6 +10,7 @@ import {
 	validredirect,
 	validslug,
 } from "./rules.ts";
+import { track } from "./src/lib/observe.ts";
 
 export type Entry = {
 	id: number;
@@ -105,7 +106,9 @@ export class Admin {
 		}
 		const fetcher = this.fetcher;
 		try {
-			return await fetcher(path, init);
+			return await track(path, spec.method, spec.action, () =>
+				fetcher(path, init),
+			);
 		} catch {
 			throw fail(0, spec.action);
 		}

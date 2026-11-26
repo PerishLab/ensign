@@ -10,8 +10,12 @@
 		"typecheck": "svelte-check --tsconfig ./tsconfig.json"
 	},
 	"type": "module",
+	"exports": {
+		"./observe": "./src/lib/observe.ts"
+	},
 	"dependencies": {
 		"@perishlab/design": "0",
+		"@perishlab/locus": "0",
 		"@perishlab/radicula-document": "0",
 		"svelte": "catalog:"
 	},

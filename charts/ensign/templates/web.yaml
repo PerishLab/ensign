@@ -2,6 +2,15 @@
 {{- if ne (toString .Values.web.replicas) "1" }}
 {{- fail "Ensign web currently supports exactly one replica; web.replicas must be 1" }}
 {{- end }}
+{{- $client := dict }}
+{{- with .Values.web.client }}
+{{- if .issuer }}{{- $_ := set $client "issuer" .issuer }}{{- end }}
+{{- if .client }}{{- $_ := set $client "client" .client }}{{- end }}
+{{- if .folio }}{{- $_ := set $client "folio" .folio }}{{- end }}
+{{- end }}
+{{- if .Values.locus.enabled }}
+{{- $_ := set $client "observe" "/api/observe" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -36,6 +45,26 @@ spec:
               port: {{ .Values.web.port }}
             initialDelaySeconds: 2
             periodSeconds: 5
+          {{- if gt (len $client) 0 }}
+          volumeMounts:
+            - name: web-client
+              mountPath: /web/dist/client.json
+              subPath: client.json
+      volumes:
+        - name: web-client
+          configMap:
+            name: {{ .Release.Name }}-web-client
+          {{- end }}
+{{- if gt (len $client) 0 }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-web-client
+data:
+  client.json: |
+    {{ $client | toJson }}
+{{- end }}
 ---
 apiVersion: v1
 kind: Service

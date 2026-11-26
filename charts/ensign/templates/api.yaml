@@ -1,6 +1,9 @@
 {{- if ne (toString .Values.api.replicas) "1" }}
 {{- fail "Ensign currently supports exactly one API replica; api.replicas must be 1" }}
 {{- end }}
+{{- if and .Values.locus.enabled (not .Values.locus.keySecret.name) }}
+{{- fail "locus.keySecret.name must be set when locus.enabled is true" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -40,6 +43,13 @@ spec:
             - name: API_ISS
               value: {{ .Values.issuer | quote }}
             {{- end }}
+            {{- if and .Values.locus.enabled .Values.locus.keySecret.name }}
+            - name: ENSIGN_LOCUS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.locus.keySecret.name }}
+                  key: {{ .Values.locus.keySecret.key | default "value" }}
+            {{- end }}
           ports:
             - containerPort: {{ .Values.api.port }}
           readinessProbe:
@@ -52,10 +62,18 @@ spec:
             - name: config
               mountPath: /ensign/ensign.toml
               subPath: ensign.toml
+            {{- if .Values.locus.enabled }}
+            - name: locus-buffer
+              mountPath: {{ .Values.locus.buffer | quote }}
+            {{- end }}
       volumes:
         - name: config
           configMap:
             name: {{ .Release.Name }}-config
+        {{- if .Values.locus.enabled }}
+        - name: locus-buffer
+          emptyDir: {}
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service

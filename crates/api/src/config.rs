@@ -1,5 +1,6 @@
 use radicula_config::{Cascade, Env};
-use std::path::Path;
+use std::fmt;
+use std::path::{Path, PathBuf};
 
 pub const NAME: &str = "ensign.toml";
 
@@ -14,6 +15,8 @@ pub struct Runtime {
     pub store: Store,
     #[cascade(section)]
     pub cache: Cache,
+    #[cascade(section)]
+    pub locus: Locus,
 }
 
 #[derive(Debug, serde::Deserialize, PartialEq, Cascade)]
@@ -89,7 +92,100 @@ pub struct Store {
     pub url: String,
 }
 
+#[derive(Clone, serde::Deserialize, PartialEq, Cascade)]
+#[cascade(section)]
+#[serde(default)]
+pub struct Locus {
+    pub endpoint: String,
+    pub key: String,
+    pub keyfile: String,
+    pub producer: String,
+    pub buffer: String,
+    pub origins: String,
+    pub rpm: u32,
+    pub burst: u32,
+    pub forwarded: bool,
+}
+
+impl Default for Locus {
+    fn default() -> Self {
+        Locus {
+            endpoint: String::new(),
+            key: String::new(),
+            keyfile: String::new(),
+            producer: "ensign-web".to_string(),
+            buffer: String::new(),
+            origins: String::new(),
+            rpm: 120,
+            burst: 30,
+            forwarded: false,
+        }
+    }
+}
+
+impl fmt::Debug for Locus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Locus")
+            .field("endpoint", &self.endpoint)
+            .field("key", &"[redacted]")
+            .field("keyfile", &self.keyfile)
+            .field("producer", &self.producer)
+            .field("buffer", &self.buffer)
+            .field("origins", &self.origins)
+            .field("rpm", &self.rpm)
+            .field("burst", &self.burst)
+            .field("forwarded", &self.forwarded)
+            .finish()
+    }
+}
+
+impl Locus {
+    pub fn enabled(&self) -> bool {
+        !self.endpoint.trim().is_empty()
+    }
+
+    pub fn secret(&self, root: &Path) -> Result<String, String> {
+        let direct = self.key.trim();
+        if !direct.is_empty() {
+            return Ok(direct.to_string());
+        }
+        let file = self.keyfile.trim();
+        if file.is_empty() {
+            return Err("locus key is required when endpoint is configured".into());
+        }
+        let path = plumb::config::rebase(Path::new(file), root);
+        let raw = std::fs::read_to_string(&path).map_err(|err| format!("locus keyfile: {err}"))?;
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            return Err("locus keyfile is empty".into());
+        }
+        Ok(trimmed.to_string())
+    }
+
+    pub fn dir(&self, root: &Path) -> Result<PathBuf, String> {
+        let raw = self.buffer.trim();
+        if raw.is_empty() {
+            return Ok(std::env::temp_dir().join("ensign-locus-relay"));
+        }
+        let path = plumb::config::rebase(Path::new(raw), root);
+        if path.is_absolute() {
+            return Ok(path);
+        }
+        std::env::current_dir()
+            .map(|cwd| cwd.join(path))
+            .map_err(|err| format!("locus buffer: {err}"))
+    }
+}
+
 pub fn load(start: &Path) -> Result<Runtime, radicula_config::Error> {
     let found = plumb::config::discover(start, NAME).ok();
-    Runtime::resolve(found.as_deref(), &Runtime::prefix(), &plumb::config::value)
+    let mut runtime =
+        Runtime::resolve(found.as_deref(), &Runtime::prefix(), &plumb::config::value)?;
+    if let Some(value) = plumb::config::value("ENSIGN_LOCUS_KEY") {
+        let trimmed = value.trim();
+        if !trimmed.is_empty() {
+            runtime.locus.key = trimmed.to_string();
+        }
+    }
+    Ok(runtime)
 }

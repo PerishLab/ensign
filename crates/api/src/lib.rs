@@ -1,6 +1,6 @@
 mod artifact;
 mod booth;
-mod config;
+pub mod config;
 mod door;
 mod model;
 mod oidc;
@@ -23,7 +23,7 @@ mod recovery {
 pub use artifact::Artifact;
 pub use booth::Booth;
 pub use oidc::{Keys, provision};
-pub use startup::{Berth, bootstrap, router, serve};
+pub use startup::{Berth, bootstrap, observe, observed, router, serve};
 pub use util::lock;
 
 use crate::model::{Actor, App, Invite, Pass, Profile, Renew, Rescue, Source, Team, plug};

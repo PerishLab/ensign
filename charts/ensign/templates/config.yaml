@@ -1,3 +1,8 @@
+{{- if .Values.locus.enabled }}
+{{- if not .Values.locus.endpoint }}
+{{- fail "locus.endpoint must be set when locus.enabled is true" }}
+{{- end }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -14,3 +19,16 @@ data:
 
     [cache]
     kind = "memory"
+    {{- if .Values.locus.enabled }}
+
+    [locus]
+    endpoint = {{ .Values.locus.endpoint | quote }}
+    producer = {{ .Values.locus.producer | quote }}
+    buffer = {{ .Values.locus.buffer | quote }}
+    {{- if .Values.locus.origins }}
+    origins = {{ join "," .Values.locus.origins | quote }}
+    {{- end }}
+    rpm = {{ .Values.locus.rpm }}
+    burst = {{ .Values.locus.burst }}
+    forwarded = {{ .Values.locus.forwarded }}
+    {{- end }}

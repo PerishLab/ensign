@@ -1,5 +1,6 @@
 mod berth;
 mod key;
+pub mod observe;
 
 pub use berth::Berth;
 pub(crate) use berth::SERVICE;
@@ -15,6 +16,8 @@ use axum::middleware::from_fn;
 use keel::adapt::db::Sqlite;
 use keel::adapt::pg::Postgres;
 use keel::{Core, Status, Wire, app, bind};
+use observe::Relay;
+use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -44,14 +47,22 @@ pub async fn serve(root: &str, specs: &[String]) {
         Ok(signing) => signing,
         Err(err) => halt("artifact", &err),
     };
+    let relay = if runtime.locus.enabled() {
+        match Relay::from(&runtime.locus, Path::new(root)) {
+            Ok(relay) => Some(relay),
+            Err(err) => halt("locus", &err),
+        }
+    } else {
+        None
+    };
     match runtime.store.kind {
         Kind::Pg => {
             let held = bind(shape(), open(&runtime).await).await;
-            listen(raise(held, &runtime), &runtime, &signing).await;
+            listen(raise(held, &runtime), &runtime, &signing, relay).await;
         }
         Kind::File => {
             let held = bind(shape(), file(root, &runtime).await).await;
-            listen(raise(held, &runtime), &runtime, &signing).await;
+            listen(raise(held, &runtime), &runtime, &signing, relay).await;
         }
         Kind::Memory => {
             let store = match Sqlite::memory().await {
@@ -59,7 +70,7 @@ pub async fn serve(root: &str, specs: &[String]) {
                 Err(err) => halt("store", &err.to_string()),
             };
             let held = bind(shape(), store).await;
-            listen(raise(held, &runtime), &runtime, &signing).await;
+            listen(raise(held, &runtime), &runtime, &signing, relay).await;
         }
     }
 }
@@ -156,7 +167,12 @@ fn raise<W: Wire + 'static>(
     }
 }
 
-async fn listen<W: Wire + 'static>(core: Arc<Core<W>>, runtime: &Runtime, signing: &Artifact) {
+async fn listen<W: Wire + 'static>(
+    core: Arc<Core<W>>,
+    runtime: &Runtime,
+    signing: &Artifact,
+    relay: Option<Relay>,
+) {
     let (door, svc) = match Berth(&core).rig().await {
         Ok(pair) => pair,
         Err(err) => halt("rise", &err.to_string()),
@@ -180,17 +196,27 @@ async fn listen<W: Wire + 'static>(core: Arc<Core<W>>, runtime: &Runtime, signin
         Ok(keys) => keys,
         Err(err) => halt("signing", &err),
     };
-    let router = router(booth, iss, keys, &seat.prefix);
+    let tail = match relay {
+        Some(relay) => observe::router(relay),
+        None => observe::absent(),
+    };
+    let base = inner(booth, iss, keys, &seat.prefix).nest("/observe", tail);
+    let router = Router::new().nest(PREFIX, base);
     eprintln!(
         "{}",
         serde_json::json!({ "role": "api", "endpoint": format!("http://{live}") })
     );
-    if let Err(err) = axum::serve(bound, router).await {
+    if let Err(err) = axum::serve(
+        bound,
+        router.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await
+    {
         halt("serve", &err.to_string());
     }
 }
 
-pub fn router<W: Wire + 'static>(booth: Booth<W>, iss: String, keys: Keys, prefix: &str) -> Router {
+fn inner<W: Wire + 'static>(booth: Booth<W>, iss: String, keys: Keys, prefix: &str) -> Router {
     let core = booth.core.clone();
     let gate = booth.gate.clone();
     let flags = oidc::Oidc::new(&booth, iss, keys).plate();
@@ -198,7 +224,22 @@ pub fn router<W: Wire + 'static>(booth: Booth<W>, iss: String, keys: Keys, prefi
         .merge(booth.plate())
         .merge(flags)
         .layer(from_fn(voice));
-    Router::new().nest(PREFIX, gate.screen(base))
+    gate.screen(base)
+}
+
+pub fn router<W: Wire + 'static>(booth: Booth<W>, iss: String, keys: Keys, prefix: &str) -> Router {
+    let base = inner(booth, iss, keys, prefix).nest("/observe", observe::absent());
+    Router::new().nest(PREFIX, base)
+}
+
+pub fn observed<W: Wire + 'static>(
+    booth: Booth<W>,
+    iss: String,
+    keys: Keys,
+    relay: Relay,
+) -> Router {
+    let base = inner(booth, iss, keys, "").nest("/observe", observe::router(relay));
+    Router::new().nest(PREFIX, base)
 }
 
 fn halt(seat: &str, note: &str) -> ! {
