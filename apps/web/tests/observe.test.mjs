@@ -13,7 +13,7 @@ import {
 } from "@perishlab/ensign-web/observe";
 import { Account, Fault } from "../account.ts";
 import { Admin } from "../admin.ts";
-import { complete, forget, start } from "../authorization.ts";
+import { complete, folio, forget, runtime, start } from "../authorization.ts";
 
 async function decode(body, headers) {
 	const raw =
@@ -80,6 +80,69 @@ test("boot stays silent no-op when observe is absent and activates when present"
 		await boot(async () => Response.json({ observe: "/api/observe" })),
 		true,
 	);
+	await reset();
+});
+
+test("observe and authorization share one /client.json fetch and retry transient faults", async () => {
+	await reset();
+	const issuer = "https://ensign.example/api";
+	let calls = 0;
+	let discovered = 0;
+	const routes = {
+		"/client.json": () => {
+			calls += 1;
+			return Response.json({
+				issuer,
+				client: "ensignweb",
+				folio: "https://folio.example",
+				observe: "/api/observe",
+			});
+		},
+		"/api/.well-known/openid-configuration": () => {
+			discovered += 1;
+			return Response.json({
+				issuer,
+				authorization_endpoint: `${issuer}/authorize`,
+				token_endpoint: `${issuer}/token`,
+			});
+		},
+	};
+	const shared = async (url) =>
+		routes[url]?.() ?? new Response(null, { status: 404 });
+
+	const [active, portal, loaded] = await Promise.all([
+		boot(shared),
+		folio(shared),
+		runtime(shared),
+	]);
+	assert.equal(active, true);
+	assert.deepEqual(portal, {
+		status: "configured",
+		href: "https://folio.example/",
+	});
+	assert.deepEqual(loaded.config, {
+		issuer,
+		client: "ensignweb",
+		folio: "https://folio.example/",
+	});
+	assert.equal(calls, 1);
+	assert.equal(discovered, 1);
+	assert.equal(await boot(shared), true);
+	assert.equal(calls, 1);
+
+	let attempts = 0;
+	const flaky = async () => {
+		attempts += 1;
+		return attempts === 1
+			? new Response(null, { status: 503 })
+			: Response.json({ observe: "/api/observe" });
+	};
+	const [first, second] = await Promise.all([boot(flaky), folio(flaky)]);
+	assert.equal(first, false);
+	assert.deepEqual(second, { status: "unknown" });
+	assert.equal(attempts, 1);
+	assert.equal(await boot(flaky), true);
+	assert.equal(attempts, 2);
 	await reset();
 });
 

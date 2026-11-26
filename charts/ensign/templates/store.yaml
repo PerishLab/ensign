@@ -1,4 +1,6 @@
-{{- if not .Values.postgres.urlSecret.name }}
+{{- $pg := .Values.postgres | default dict }}
+{{- $urlSecret := $pg.urlSecret | default dict }}
+{{- if not $urlSecret.name }}
 apiVersion: v1
 kind: Secret
 metadata:
@@ -11,10 +13,8 @@ stringData:
   # One generation, two fields. Rendering the helper twice would mint two
   # different passwords and the store would refuse its own url.
   {{- $pass := include "ensign.pgpass" . }}
+  {{- $url := $pg.url | default (printf "host=%s-pg port=5432 user=%s password=%s dbname=%s" .Release.Name ($pg.user | default "ensign") $pass ($pg.db | default "ensign")) }}
   PGPASSWORD: {{ $pass | quote }}
-  {{- if .Values.postgres.url }}
-  API_STORE_URL: {{ .Values.postgres.url | quote }}
-  {{- else }}
-  API_STORE_URL: {{ printf "host=%s-pg port=5432 user=%s password=%s dbname=%s" .Release.Name .Values.postgres.user $pass .Values.postgres.db | quote }}
-  {{- end }}
+  ENSIGN_STORE_URL: {{ $url | quote }}
+  API_STORE_URL: {{ $url | quote }}
 {{- end }}

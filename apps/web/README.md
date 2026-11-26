@@ -37,17 +37,21 @@ per-app overrides, and extension preferences are managed. Folio-synced
 presentation stays in memory only (cleared on logout or 401) and is never
 cached in `localStorage`. Device color scheme is request context only.
 
-`/client.json` is public deployment input containing `issuer`, `client`, and an
+`/client.json` is public deployment input containing `issuer`, `client`, an
 optional `folio` URL (`http:` / `https:`) pointing to the Folio Domain-Wide
-Settings Center. The checked-in empty object keeps settings inactive for
-unconfigured deployments; omitted or invalid `folio` values degrade gracefully
-as absent, while unreadable `/client.json` surfaces an unknown/retry notice.
-Development and production supply it through the deployment routing. K3s routes
-`/client.json` to the public configuration seat and `/folio` to Folio, removing
-that prefix and the Ensign cookie while preserving the resource bearer.
-The built static server expects deployment to provide `client.json` and ingress
-to route `/api` to Ensign and `/folio` (prefix removed) to Folio. These values
-contain no keys, tokens, passwords or preference facts.
+Settings Center, and an optional same-origin `observe` path (such as
+`/api/observe`) for Locus browser telemetry. The checked-in empty object keeps
+settings and observability inactive for unconfigured deployments; omitted or
+invalid `folio` or `observe` values degrade gracefully as absent, while
+unreadable `/client.json` surfaces an unknown/retry notice. In Kubernetes,
+`charts/ensign` renders the `<release>-web-client` ConfigMap (`{}` when
+unconfigured) and mounts it at `/web/dist/client.json` with a `checksum/client`
+rollout annotation, and `@perishlab/design/vite`'s static server serves it with
+`Cache-Control: no-store`. The web application loads `/client.json` through a
+single shared cached-promise loader per page load across observability and
+authorization flows. Ingress routes `/api` to Ensign and `/folio` (prefix
+removed) to Folio. These values contain no keys, tokens, passwords or
+preference facts.
 
 The issuer remains canonical even when identity transport is same-origin.
 Register the exact `/callback` redirect for the configured OIDC client and the

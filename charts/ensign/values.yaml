@@ -63,7 +63,7 @@ locus:
   forwarded: true
   rpm: 120
   burst: 30
-  buffer: "/tmp/ensign-locus-relay"
+  buffer: "/tmp/ensign-locus-relay/spool"
   keySecret:
     name: ""
     key: "value"

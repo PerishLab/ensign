@@ -130,9 +130,14 @@ impl Drop for Stage {
 }
 
 pub fn store() -> Option<String> {
-    std::env::var("API_STORE_URL")
+    std::env::var("ENSIGN_STORE_URL")
         .ok()
         .filter(|url| !url.is_empty())
+        .or_else(|| {
+            std::env::var("API_STORE_URL")
+                .ok()
+                .filter(|url| !url.is_empty())
+        })
 }
 
 pub fn serial() -> Option<MutexGuard<'static, Unit>> {
@@ -168,10 +173,10 @@ fn launch(exe: &Path, nest: &Path, store: Option<&str>, fresh: bool) -> Command 
         .env("ENSIGN_HOME", nest);
     if let Some(url) = store {
         command
-            .env("API_STORE_KIND", "pg")
-            .env("API_STORE_URL", url);
+            .env("ENSIGN_STORE_KIND", "pg")
+            .env("ENSIGN_STORE_URL", url);
         if fresh {
-            command.env("API_FRESH", "true");
+            command.env("ENSIGN_FRESH", "true");
         }
     }
     command
