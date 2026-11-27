@@ -91,6 +91,7 @@ dependencies = [
  "tokio",
  "tower",
  "ureq",
+ "url",
 ]
 
 [[package]]
@@ -748,13 +749,17 @@ version = "0.0.0"
 dependencies = [
  "clap",
  "ensign-client",
+ "getrandom 0.3.4",
+ "keel",
  "locus",
  "plumb",
  "radicula-config",
  "serde",
  "serde_json",
  "tempfile",
+ "tokio",
  "ureq",
+ "url",
 ]
 
 [[package]]
@@ -1416,9 +1421,9 @@ dependencies = [
 
 [[package]]
 name = "keel"
-version = "0.31.0"
+version = "0.32.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "a12406cb5a89da0c4ee0c08e631446e90e47e0399280b417460bdfba481b17e5"
+checksum = "ebaa01120da1e91810a7f539d4483a1bdb58ae5885aafd1c0009318845fe80d1"
 dependencies = [
  "axum",
  "getrandom 0.3.4",
@@ -1433,9 +1438,9 @@ dependencies = [
 
 [[package]]
 name = "keel-gate"
-version = "0.31.0"
+version = "0.32.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "6ff19ba824ffe06de32a9c92b84b384929f71202d35ff43540a6dfee57e8d89c"
+checksum = "0576ebc57a6a7d2e0f8bf6f8b8a4f8688153b6cf0cdacdddf0f1ac306e346448"
 dependencies = [
  "axum",
  "getrandom 0.3.4",
@@ -1446,9 +1451,9 @@ dependencies = [
 
 [[package]]
 name = "keel-macro"
-version = "0.31.0"
+version = "0.32.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "3a3f738a3357ea90c757dda426dcf6b07532f5f3a75faba581b061def6f500dd"
+checksum = "af51cc3f33337f31fbdc8ded0700815017da89f9f36684f0fd553bbccfc4cec5"
 dependencies = [
  "proc-macro2",
  "quote",

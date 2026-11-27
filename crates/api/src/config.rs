@@ -7,7 +7,6 @@ pub const NAME: &str = "ensign.toml";
 #[derive(Debug, Default, PartialEq, Cascade)]
 #[plumb::config::prefix("ENSIGN")]
 pub struct Runtime {
-    pub fresh: bool,
     pub iss: String,
     #[cascade(section)]
     pub listen: Listen,

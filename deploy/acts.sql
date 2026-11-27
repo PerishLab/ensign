@@ -1,2 +1,1 @@
--- The acts bootstrap with API_FRESH; they get a database of their own.
-CREATE DATABASE ensign_acts;
+CREATE ROLE ensign_acts LOGIN CREATEDB PASSWORD 'ensign_acts';

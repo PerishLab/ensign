@@ -28,7 +28,6 @@ pub async fn bootstrap(root: &str, specs: &[String]) -> Result<(), String> {
     let artifacts = artifact::bootstrap(specs).map_err(|err| format!("artifact: {err}"))?;
     let done = match runtime.store.kind {
         Kind::Pg => provision(open(&runtime).await, &artifacts).await,
-        Kind::File if runtime.fresh => return Err("fresh: file store wipe is not supported".into()),
         Kind::File => provision(file(root, &runtime).await, &artifacts).await,
         Kind::Memory => return Err("store: bootstrap requires a durable store".into()),
     };
@@ -40,9 +39,6 @@ pub async fn serve(root: &str, specs: &[String]) {
         Ok(runtime) => runtime,
         Err(err) => halt("config", &err.to_string()),
     };
-    if runtime.fresh {
-        halt("fresh", "wipe is allowed only during explicit bootstrap");
-    }
     let signing = match artifact::signing(Path::new(root), specs) {
         Ok(signing) => signing,
         Err(err) => halt("artifact", &err),
@@ -76,16 +72,10 @@ pub async fn serve(root: &str, specs: &[String]) {
 }
 
 async fn open(runtime: &Runtime) -> Postgres {
-    let mut store = match Postgres::at(&runtime.store.url).await {
+    match Postgres::at(&runtime.store.url).await {
         Ok(store) => store,
         Err(err) => halt("pg", &err.to_string()),
-    };
-    if runtime.fresh
-        && let Err(err) = store.wipe().await
-    {
-        halt("fresh", &err.to_string());
     }
-    store
 }
 
 async fn file(root: &str, runtime: &Runtime) -> Sqlite {
