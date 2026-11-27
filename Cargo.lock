@@ -91,6 +91,7 @@ dependencies = [
  "tokio",
  "tower",
  "ureq",
+ "url",
 ]
 
 [[package]]
@@ -748,13 +749,17 @@ version = "0.0.0"
 dependencies = [
  "clap",
  "ensign-client",
+ "getrandom 0.3.4",
+ "keel",
  "locus",
  "plumb",
  "radicula-config",
  "serde",
  "serde_json",
  "tempfile",
+ "tokio",
  "ureq",
+ "url",
 ]
 
 [[package]]

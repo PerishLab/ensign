@@ -96,7 +96,7 @@ services:
       bootstrap:
         condition: service_completed_successfully
   # The acts on the lane's Postgres. The checkout is read-only and cargo
-  # writes only to lane volumes; API_FRESH wipes ensign_acts, never ensign.
+  # writes only to lane volumes. Each case owns a scratch database.
   runner:
     profiles: [tools]
     image: ghcr.io/perishlab/images:stable
@@ -105,7 +105,7 @@ services:
     entrypoint: []
     environment:
       CARGO_TARGET_DIR: /target
-      API_STORE_URL: "host=pg port=5432 user=ensign password=ensign dbname=ensign_acts"
+      API_STORE_URL: "host=pg port=5432 user=ensign_acts password=ensign_acts dbname=postgres"
     volumes:
       - ..:/src:ro
       - target:/target

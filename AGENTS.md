@@ -30,8 +30,8 @@ keel's `AGENTS.md` and source; this repo obeys them from the outside.
   name on the lane's private network (`pg`, `api`). Only `api` also joins the
   shared lane network `perish-<lane>` as `api.ensign.internal`, and
   `http://api.ensign.internal:8080/api` is the issuer.
-  The `tools` profile's `runner` runs the acts there on the `ensign_acts`
-  database: `docker compose -f deploy/compose.yml --profile tools run --rm
+  The `tools` profile's `runner` uses the `ensign_acts` role and creates
+  a scratch database for each test case: `docker compose -f deploy/compose.yml --profile tools run --rm
   runner cargo test --locked -p api --test acceptance`. It mounts the
   checkout read-only and keeps cargo's registry and target on lane volumes.
   For the stack, build with `cargo build --release --locked --bin
@@ -60,8 +60,10 @@ mounts, on an estate sealed in the test (`rig/bench.rs`). The real binary is
 thin smoke: `crates/api/tests/bootstrap.rs` holds the ceremony, replay and
 runtime refusals, `smoke.rs` one served health and discovery check, the
 bootstrap re-runs in `swap.rs` keep `Stage`, and `crates/cli/tests/acceptance`
-drives the `ensign` CLI against `ensign-api`. Set `API_STORE_URL` to run both
-on Postgres. The repository keeps no `.runseal/` directory: the acts harness,
+drives the `ensign` CLI against `ensign-api`. Set `ENSIGN_STORE_URL` (or
+`API_STORE_URL`) to a maintenance database on Postgres 13 or newer to run
+both against per-case scratch databases. The login must have `CREATEDB`.
+Rebuild a disposable Compose lane created before the runner role existed. The repository keeps no `.runseal/` directory: the acts harness,
 the generic guard, init and land wrappers and the repository-owned Git hooks
 are gone.
 
@@ -129,7 +131,7 @@ which consumers mount read-only.
   (never its vocabulary).
   Never a workspace sibling of keel; distribution follows keel's channel.
 - Runtime env rides the cascade under the `api` package's `API_` prefix
-  (`API_STORE_KIND` / `API_STORE_URL` / `API_STORE_PATH` / `API_FRESH` /
+  (`API_STORE_KIND` / `API_STORE_URL` / `API_STORE_PATH` /
   `API_ISS`); the port override is keel's `KEEL_LISTEN_PORT`, translated
   from `SIDECAR_PORT` in `sidecar.toml`, never read in product code.
 - Engine gaps become keel issues and registry releases, never local
