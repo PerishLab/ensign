@@ -13,6 +13,10 @@ spec:
         app: {{ .Release.Name }}-bootstrap
     spec:
       serviceAccountName: {{ .Release.Name }}-bootstrap
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       restartPolicy: OnFailure
       securityContext:
         runAsNonRoot: true

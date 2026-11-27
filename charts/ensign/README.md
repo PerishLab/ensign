@@ -4,7 +4,10 @@ Resolve the formal product release through Plumb and Wharf before selecting its
 chart and images. The chart consumes one API instance, one Web instance (when
 `web.enabled` is true), and a durable PostgreSQL store. Set a stable issuer
 explicitly; a local validation issuer does not establish public TLS or browser
-authentication.
+authentication. Public GHCR images need no registry credentials; set top-level
+`imagePullSecrets` (e.g. `[{name: registry}]`) only when pulling from a private
+registry or mirror, which wires credentials across API, bootstrap, web, and
+bundled PostgreSQL pods.
 
 ## Install
 
