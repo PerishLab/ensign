@@ -1,3 +1,6 @@
+# Optional imagePullSecrets for private or mirrored registries. Leave empty for
+# public GHCR images.
+imagePullSecrets: []
 api:
   image: ghcr.io/perishlab/ensign
   # tag defaults to Chart.appVersion; override only to pin a different image
