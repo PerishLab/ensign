@@ -1,15 +1,14 @@
 #![allow(dead_code)]
 
+#[path = "scratch.rs"]
+mod scratch;
+
+pub use scratch::Scratch;
 use serde_json::Value;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Output, Stdio};
-use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
-
-pub struct Unit;
-
-static SERIAL: Mutex<Unit> = Mutex::new(Unit);
 
 pub struct Stage {
     pub origin: String,
@@ -19,7 +18,7 @@ pub struct Stage {
     exe: PathBuf,
     child: Child,
     room: tempfile::TempDir,
-    hold: Option<MutexGuard<'static, Unit>>,
+    scratch: Option<Scratch>,
 }
 
 impl Stage {
@@ -28,8 +27,8 @@ impl Stage {
     }
 
     pub fn with(exe: &Path, slugs: &[&str]) -> Self {
-        let store = store();
-        let hold = serial();
+        let scratch = Scratch::open();
+        let store = scratch.as_ref().map(Scratch::url);
         let room = tempfile::tempdir().expect("stage room");
         let nest = room.path().to_path_buf();
         std::fs::write(
@@ -39,7 +38,7 @@ impl Stage {
         .expect("stage config");
         let sudo = nest.join("sudo");
         let signing = format!("signing=file:{}", nest.join("sign.pem").display());
-        let mut boot = launch(exe, &nest, store.as_deref(), true);
+        let mut boot = launch(exe, &nest, store);
         boot.arg("bootstrap")
             .arg(&nest)
             .arg("--artifact")
@@ -58,7 +57,7 @@ impl Stage {
             String::from_utf8_lossy(&done.stderr)
         );
         let token = std::fs::read_to_string(&sudo).expect("sudo custody");
-        let mut child = launch(exe, &nest, store.as_deref(), false)
+        let mut child = launch(exe, &nest, store)
             .arg("serve")
             .arg(&nest)
             .arg("--artifact")
@@ -77,7 +76,7 @@ impl Stage {
             exe: exe.to_path_buf(),
             child,
             room,
-            hold,
+            scratch,
         };
         stage.ready();
         stage
@@ -89,8 +88,8 @@ impl Stage {
     }
 
     pub fn again(&self, specs: &[String]) -> Output {
-        let store = store();
-        let mut boot = launch(&self.exe, &self.nest, store.as_deref(), false);
+        let store = self.scratch.as_ref().map(Scratch::url);
+        let mut boot = launch(&self.exe, &self.nest, store);
         boot.arg("bootstrap")
             .arg(&self.nest)
             .arg("--artifact")
@@ -129,21 +128,6 @@ impl Drop for Stage {
     }
 }
 
-pub fn store() -> Option<String> {
-    std::env::var("ENSIGN_STORE_URL")
-        .ok()
-        .filter(|url| !url.is_empty())
-        .or_else(|| {
-            std::env::var("API_STORE_URL")
-                .ok()
-                .filter(|url| !url.is_empty())
-        })
-}
-
-pub fn serial() -> Option<MutexGuard<'static, Unit>> {
-    store().map(|_| SERIAL.lock().unwrap_or_else(|poison| poison.into_inner()))
-}
-
 fn listen(child: &mut Child) -> String {
     let pipe = child.stderr.take().expect("serve stderr");
     let mut lines = BufReader::new(pipe).lines();
@@ -163,7 +147,7 @@ fn listen(child: &mut Child) -> String {
     panic!("serve exited before listening: {}", said.join("\n"));
 }
 
-fn launch(exe: &Path, nest: &Path, store: Option<&str>, fresh: bool) -> Command {
+fn launch(exe: &Path, nest: &Path, store: Option<&str>) -> Command {
     let mut command = Command::new(exe);
     command
         .env_clear()
@@ -175,9 +159,6 @@ fn launch(exe: &Path, nest: &Path, store: Option<&str>, fresh: bool) -> Command 
         command
             .env("ENSIGN_STORE_KIND", "pg")
             .env("ENSIGN_STORE_URL", url);
-        if fresh {
-            command.env("ENSIGN_FRESH", "true");
-        }
     }
     command
 }

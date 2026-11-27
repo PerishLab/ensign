@@ -121,10 +121,7 @@ async fn frozen() {
         .await
         .expect("grant query")
         .expect("grant");
-    core.sudo()
-        .end("@grant", grant.key())
-        .await
-        .expect("remove grant");
+    core.sudo().revoke(grant.key()).await.expect("remove grant");
 
     assert!(api::Berth(&core).rig().await.is_err());
     assert!(

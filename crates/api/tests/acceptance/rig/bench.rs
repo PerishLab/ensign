@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use super::shaky::{Knob, Shaky};
-use super::stage::{Unit, serial, store};
+use super::stage::Scratch;
 use super::wire::{Ask, Head, Line, Reply, Wire};
 use api::{Artifact, Berth, Booth};
 use axum::Router;
@@ -10,7 +10,7 @@ use axum::http::Request;
 use keel::adapt::db::Sqlite;
 use keel::adapt::pg::Postgres;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, MutexGuard};
+use std::sync::Arc;
 use tokio::runtime::Runtime;
 use tower::ServiceExt;
 
@@ -24,7 +24,7 @@ pub struct Bench {
     router: Router,
     spin: Arc<Runtime>,
     room: tempfile::TempDir,
-    hold: Option<MutexGuard<'static, Unit>>,
+    scratch: Option<Scratch>,
 }
 
 impl Bench {
@@ -41,14 +41,14 @@ impl Bench {
     }
 
     fn build(slugs: &[&str], knob: Option<Arc<Knob>>) -> Self {
-        let hold = serial();
+        let scratch = Scratch::open();
         let room = tempfile::tempdir().expect("bench room");
         let nest = room.path().to_path_buf();
         let spin = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
             .expect("bench runtime");
-        let (router, sudo) = spin.block_on(stock(&nest, slugs, knob));
+        let (router, sudo) = spin.block_on(stock(&nest, slugs, knob, scratch.as_ref()));
         Self {
             origin: ISSUER.trim_end_matches("/api").to_string(),
             base: ISSUER.to_string(),
@@ -57,7 +57,7 @@ impl Bench {
             router,
             spin: Arc::new(spin),
             room,
-            hold,
+            scratch,
         }
     }
 
@@ -79,16 +79,19 @@ impl Bench {
     }
 }
 
-async fn stock(nest: &Path, slugs: &[&str], knob: Option<Arc<Knob>>) -> (Router, String) {
-    match (store(), knob) {
+async fn stock(
+    nest: &Path,
+    slugs: &[&str],
+    knob: Option<Arc<Knob>>,
+    scratch: Option<&Scratch>,
+) -> (Router, String) {
+    match (scratch.map(Scratch::url), knob) {
         (Some(url), Some(knob)) => {
-            let mut held = Postgres::at(url).await.expect("pg");
-            held.wipe().await.expect("wipe");
+            let held = Postgres::at(url).await.expect("pg");
             raise(Shaky::new(held, knob), nest, slugs).await
         }
         (Some(url), None) => {
-            let mut held = Postgres::at(url).await.expect("pg");
-            held.wipe().await.expect("wipe");
+            let held = Postgres::at(url).await.expect("pg");
             raise(held, nest, slugs).await
         }
         (None, Some(knob)) => {
